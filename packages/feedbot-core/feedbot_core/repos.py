@@ -1,5 +1,5 @@
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,7 +19,6 @@ from feedbot_core.models import (
     User,
 )
 from feedbot_core.security import hash_secret, verify_secret
-
 
 # ─── Tenants & users ────────────────────────────────────────────────────────
 
@@ -88,7 +87,7 @@ async def authenticate_api_key(session: AsyncSession, raw: str) -> ApiKey | None
         return None
     if not verify_secret(raw, candidate.secret_hash):
         return None
-    candidate.last_used_at = datetime.now(timezone.utc)
+    candidate.last_used_at = datetime.now(UTC)
     return candidate
 
 
@@ -141,7 +140,7 @@ async def issue_chat_link_token(
         project_id=project_id,
         token=secrets.token_urlsafe(24),
         created_by_email=created_by_email,
-        expires_at=datetime.now(timezone.utc) + timedelta(minutes=ttl_minutes),
+        expires_at=datetime.now(UTC) + timedelta(minutes=ttl_minutes),
     )
     session.add(token)
     await session.flush()
@@ -161,7 +160,7 @@ async def redeem_chat_link_token(
     token = row.scalar_one_or_none()
     if not token or token.used_at is not None:
         return None
-    if token.expires_at < datetime.now(timezone.utc):
+    if token.expires_at < datetime.now(UTC):
         return None
 
     # Refuse if this chat is already linked anywhere (UNIQUE would block, but we want
@@ -174,7 +173,7 @@ async def redeem_chat_link_token(
         project_id=token.project_id, platform=platform, chat_id=chat_id, title=chat_title
     )
     session.add(link)
-    token.used_at = datetime.now(timezone.utc)
+    token.used_at = datetime.now(UTC)
     token.used_chat_id = chat_id
     await session.flush()
     return link
@@ -270,7 +269,7 @@ async def issue_magic_link(session: AsyncSession, email: str, raw_token: str, tt
     token = MagicLinkToken(
         email=email,
         token_hash=hash_secret(raw_token),
-        expires_at=datetime.now(timezone.utc) + timedelta(minutes=ttl_minutes),
+        expires_at=datetime.now(UTC) + timedelta(minutes=ttl_minutes),
     )
     session.add(token)
     await session.flush()
@@ -283,7 +282,7 @@ async def consume_magic_link(session: AsyncSession, email: str, raw_token: str) 
         .order_by(MagicLinkToken.created_at.desc())
         .limit(5)
     )
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     for token in rows.scalars():
         if token.expires_at < now:
             continue

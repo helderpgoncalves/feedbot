@@ -1,8 +1,7 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field
-
 from feedbot_core.models import FeedbackStatus, FeedbackType, Severity
+from pydantic import BaseModel, Field
 
 
 class FeedbackIn(BaseModel):

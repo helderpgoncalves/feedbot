@@ -2,11 +2,6 @@ import os
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from feedbot_api.deps import get_session, require_session_user
-from feedbot_api.templating import templates
 from feedbot_core.models import ApiKey, Project, User
 from feedbot_core.repos import (
     create_project,
@@ -18,6 +13,11 @@ from feedbot_core.repos import (
     stats_for_project,
     unlink_chat,
 )
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from feedbot_api.deps import get_session, require_session_user
+from feedbot_api.templating import templates
 
 router = APIRouter(prefix="/app", tags=["dashboard"])
 

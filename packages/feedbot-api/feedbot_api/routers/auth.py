@@ -2,11 +2,11 @@ import secrets
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+from feedbot_core.repos import consume_magic_link, get_or_create_user, issue_magic_link
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from feedbot_api.deps import get_session
 from feedbot_api.templating import templates
-from feedbot_core.repos import consume_magic_link, get_or_create_user, issue_magic_link
 
 router = APIRouter(tags=["auth"])
 

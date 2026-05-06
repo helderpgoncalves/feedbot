@@ -1,8 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from feedbot_api.deps import get_api_key, get_project_from_key, get_session
-from feedbot_api.schemas import FeedbackIn, FeedbackOut, FeedbackPatch, StatsOut
 from feedbot_core.models import ApiKey, Feedback, FeedbackStatus, FeedbackType, Project, Severity
 from feedbot_core.repos import (
     create_feedback,
@@ -11,6 +7,10 @@ from feedbot_core.repos import (
     stats_for_project,
     update_feedback_status,
 )
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from feedbot_api.deps import get_api_key, get_project_from_key, get_session
+from feedbot_api.schemas import FeedbackIn, FeedbackOut, FeedbackPatch, StatsOut
 
 router = APIRouter(prefix="/v1", tags=["v1"])
 

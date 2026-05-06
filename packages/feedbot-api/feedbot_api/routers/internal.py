@@ -7,18 +7,18 @@ via /v1/internal/redeem-link, triggered by /start link_<token> in Telegram).
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from feedbot_api.deps import get_session, require_bot_token
-from feedbot_api.schemas import FeedbackOut
-from feedbot_api.routers.v1 import _to_out
 from feedbot_core.models import FeedbackType, Project, Severity
 from feedbot_core.repos import (
     create_feedback,
     project_for_chat,
     redeem_chat_link_token,
 )
+from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from feedbot_api.deps import get_session, require_bot_token
+from feedbot_api.routers.v1 import _to_out
+from feedbot_api.schemas import FeedbackOut
 
 router = APIRouter(
     prefix="/v1/internal",

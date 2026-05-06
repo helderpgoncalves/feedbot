@@ -4,12 +4,11 @@ from collections.abc import AsyncIterator
 from functools import lru_cache
 
 from fastapi import Depends, Header, HTTPException, Request, status
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-
 from feedbot_core.db import make_engine, make_sessionmaker
 from feedbot_core.models import ApiKey, Project
 from feedbot_core.repos import authenticate_api_key
 from feedbot_core.settings import CoreSettings
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 
 @lru_cache

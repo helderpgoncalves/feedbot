@@ -74,7 +74,8 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     )
     if not result:
         await msg.reply_text(
-            "❌ Couldn't link this chat. The invite may be expired, already used, or the chat is connected to another project."
+            "❌ Couldn't link this chat. The invite may be expired, already used, "
+            "or the chat is connected to another project."
         )
         return
     await msg.reply_text(
@@ -98,7 +99,8 @@ async def on_message(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         return
     if fb is None:
         await update.effective_message.reply_text(
-            "This chat isn't connected to any Feedbot project yet. Ask an admin to generate an invite from the dashboard."
+            "This chat isn't connected to any Feedbot project yet. "
+            "Ask an admin to generate an invite from the dashboard."
         )
         return
     await update.effective_message.reply_text(

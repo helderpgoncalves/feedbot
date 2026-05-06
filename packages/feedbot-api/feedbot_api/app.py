@@ -3,11 +3,11 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from feedbot_core.settings import CoreSettings
 from starlette.middleware.sessions import SessionMiddleware
 
 from feedbot_api.routers import auth, dashboard, internal, v1
 from feedbot_api.templating import templates
-from feedbot_core.settings import CoreSettings
 
 settings = CoreSettings()
 app = FastAPI(title="Feedbot", version="0.1.0")
