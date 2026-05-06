@@ -23,7 +23,11 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install ruff
-          for p in packages/*; do pip install -e "$p"; done
+          # Install feedbot-core first; the other packages depend on it.
+          pip install -e packages/feedbot-core
+          pip install -e packages/feedbot-api
+          pip install -e packages/feedbot-bot
+          pip install -e packages/feedbot-mcp
       - name: Lint
         run: ruff check packages/
       - name: Import smoke test

@@ -5,15 +5,18 @@ Thanks for being here. Feedbot is intentionally small — under a few hundred li
 ## Local setup
 
 ```bash
-git clone https://github.com/yourname/feedbot.git
+git clone https://github.com/helderpgoncalves/feedbot.git
 cd feedbot
 cp .env.example .env
 
 # Bring up Postgres
 docker compose up db -d
 
-# Install the workspace
-uv sync   # or: for p in packages/*; do pip install -e "$p"; done
+# Install the workspace (feedbot-core first; the others depend on it)
+pip install -e packages/feedbot-core \
+            -e packages/feedbot-api \
+            -e packages/feedbot-bot \
+            -e packages/feedbot-mcp
 
 # Run migrations
 alembic upgrade head

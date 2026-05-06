@@ -217,9 +217,12 @@ We genuinely want PRs. The codebase is intentionally small and readable — each
 - 🐛 [Issues](https://github.com/helderpgoncalves/feedbot/issues) — bugs and small features (use the templates)
 
 ```bash
-# Quick dev setup
+# Quick dev setup (feedbot-core must come first; others depend on it)
 docker compose up db -d
-for p in packages/*; do pip install -e "$p"; done
+pip install -e packages/feedbot-core \
+            -e packages/feedbot-api \
+            -e packages/feedbot-bot \
+            -e packages/feedbot-mcp
 alembic upgrade head
 uvicorn feedbot_api.app:app --reload
 ```
