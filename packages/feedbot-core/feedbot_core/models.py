@@ -40,6 +40,20 @@ class Severity(StrEnum):
     CRITICAL = "critical"
 
 
+class Role(StrEnum):
+    """Tenant-level role.
+
+    Authorization is intentionally simple:
+        owner   — bootstrap user, can do anything; cannot be modified by anyone else.
+        admin   — can invite, create/delete projects, manage keys and members.
+        member  — sees only projects they are a member of; can triage feedback there.
+    """
+
+    OWNER = "owner"
+    ADMIN = "admin"
+    MEMBER = "member"
+
+
 class Tenant(Base):
     __tablename__ = "tenants"
 
@@ -57,9 +71,14 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), index=True)
     email: Mapped[str] = mapped_column(String(255), unique=True)
+    role: Mapped[Role] = mapped_column(String(16), default=Role.MEMBER)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     tenant: Mapped[Tenant] = relationship(back_populates="users")
+
+    @property
+    def is_admin(self) -> bool:
+        return self.role in (Role.OWNER, Role.ADMIN)
 
 
 class Project(Base):
@@ -75,8 +94,38 @@ class Project(Base):
     api_keys: Mapped[list["ApiKey"]] = relationship(back_populates="project", cascade="all, delete-orphan")
     chats: Mapped[list["ChatLink"]] = relationship(back_populates="project", cascade="all, delete-orphan")
     feedbacks: Mapped[list["Feedback"]] = relationship(back_populates="project", cascade="all, delete-orphan")
+    members: Mapped[list["ProjectMember"]] = relationship(back_populates="project", cascade="all, delete-orphan")
 
     __table_args__ = (UniqueConstraint("tenant_id", "slug", name="uq_project_tenant_slug"),)
+
+
+class ProjectMember(Base):
+    """Joins users to projects. Members (non-admin) can only see projects they're in."""
+
+    __tablename__ = "project_members"
+
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    project: Mapped[Project] = relationship(back_populates="members")
+
+
+class Invite(Base):
+    """Single-use invitation to join a tenant (optionally pre-attached to a project)."""
+
+    __tablename__ = "invites"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), index=True)
+    email: Mapped[str] = mapped_column(String(255), index=True)
+    role: Mapped[Role] = mapped_column(String(16), default=Role.MEMBER)
+    project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=True)
+    token: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    invited_by_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class ApiKey(Base):
@@ -109,9 +158,7 @@ class ChatLink(Base):
 
     project: Mapped[Project] = relationship(back_populates="chats")
 
-    __table_args__ = (
-        UniqueConstraint("platform", "chat_id", name="uq_chat_platform_id"),
-    )
+    __table_args__ = (UniqueConstraint("platform", "chat_id", name="uq_chat_platform_id"),)
 
 
 class Feedback(Base):

@@ -12,8 +12,11 @@ from feedbot_core.models import (
     Feedback,
     FeedbackStatus,
     FeedbackType,
+    Invite,
     MagicLinkToken,
     Project,
+    ProjectMember,
+    Role,
     Severity,
     Tenant,
     User,
@@ -23,17 +26,45 @@ from feedbot_core.security import hash_secret, verify_secret
 # ─── Tenants & users ────────────────────────────────────────────────────────
 
 
-async def get_or_create_user(session: AsyncSession, email: str) -> User:
-    user = (await session.execute(select(User).where(User.email == email))).scalar_one_or_none()
-    if user:
-        return user
-    tenant = Tenant(name=email.split("@")[0])
+async def get_user_by_email(session: AsyncSession, email: str) -> User | None:
+    row = await session.execute(select(User).where(User.email == email))
+    return row.scalar_one_or_none()
+
+
+async def count_users(session: AsyncSession) -> int:
+    row = await session.execute(select(func.count()).select_from(User))
+    return int(row.scalar_one())
+
+
+async def list_tenant_users(session: AsyncSession, tenant_id: int) -> list[User]:
+    rows = await session.execute(select(User).where(User.tenant_id == tenant_id).order_by(User.created_at.asc()))
+    return list(rows.scalars())
+
+
+async def bootstrap_owner(session: AsyncSession, email: str, tenant_name: str) -> User:
+    """Create the very first tenant + owner user. Refuses if any user already exists."""
+    if await count_users(session) > 0:
+        raise RuntimeError("bootstrap already complete")
+    tenant = Tenant(name=tenant_name or email.split("@")[0])
     session.add(tenant)
     await session.flush()
-    user = User(email=email, tenant_id=tenant.id)
+    user = User(email=email, tenant_id=tenant.id, role=Role.OWNER)
     session.add(user)
     await session.flush()
     return user
+
+
+async def update_user_role(session: AsyncSession, user: User, new_role: Role) -> User:
+    """Change a user's role. Caller is responsible for authorization checks."""
+    user.role = new_role
+    await session.flush()
+    return user
+
+
+async def delete_user(session: AsyncSession, user: User) -> None:
+    """Delete a user. Caller is responsible for authorization checks (e.g. cannot delete owner)."""
+    await session.delete(user)
+    await session.flush()
 
 
 # ─── Projects ───────────────────────────────────────────────────────────────
@@ -46,6 +77,39 @@ async def list_projects(session: AsyncSession, tenant_id: int) -> list[Project]:
     return list(rows.scalars())
 
 
+async def list_projects_for_user(session: AsyncSession, user: User) -> list[Project]:
+    """Return projects this user can see.
+
+    Owners and admins see every project in the tenant. Members see only projects
+    they were explicitly added to via project_members.
+    """
+    if user.is_admin:
+        return await list_projects(session, user.tenant_id)
+    rows = await session.execute(
+        select(Project)
+        .join(ProjectMember, ProjectMember.project_id == Project.id)
+        .where(Project.tenant_id == user.tenant_id, ProjectMember.user_id == user.id)
+        .order_by(Project.created_at.desc())
+    )
+    return list(rows.scalars())
+
+
+async def get_project_by_slug(session: AsyncSession, tenant_id: int, slug: str) -> Project | None:
+    row = await session.execute(select(Project).where(Project.tenant_id == tenant_id, Project.slug == slug))
+    return row.scalar_one_or_none()
+
+
+async def user_can_access_project(session: AsyncSession, user: User, project: Project) -> bool:
+    if project.tenant_id != user.tenant_id:
+        return False
+    if user.is_admin:
+        return True
+    row = await session.execute(
+        select(ProjectMember).where(ProjectMember.project_id == project.id, ProjectMember.user_id == user.id)
+    )
+    return row.scalar_one_or_none() is not None
+
+
 async def create_project(session: AsyncSession, tenant_id: int, slug: str, name: str) -> Project:
     project = Project(tenant_id=tenant_id, slug=slug, name=name)
     session.add(project)
@@ -53,12 +117,125 @@ async def create_project(session: AsyncSession, tenant_id: int, slug: str, name:
     return project
 
 
+async def delete_project(session: AsyncSession, project: Project) -> None:
+    await session.delete(project)
+    await session.flush()
+
+
+# ─── Project members ────────────────────────────────────────────────────────
+
+
+async def list_project_members(session: AsyncSession, project_id: int) -> list[User]:
+    rows = await session.execute(
+        select(User)
+        .join(ProjectMember, ProjectMember.user_id == User.id)
+        .where(ProjectMember.project_id == project_id)
+        .order_by(User.email.asc())
+    )
+    return list(rows.scalars())
+
+
+async def add_project_member(session: AsyncSession, project_id: int, user_id: int) -> bool:
+    """Idempotent: returns False if the user was already a member."""
+    existing = await session.execute(
+        select(ProjectMember).where(ProjectMember.project_id == project_id, ProjectMember.user_id == user_id)
+    )
+    if existing.scalar_one_or_none():
+        return False
+    session.add(ProjectMember(project_id=project_id, user_id=user_id))
+    await session.flush()
+    return True
+
+
+async def remove_project_member(session: AsyncSession, project_id: int, user_id: int) -> bool:
+    row = await session.execute(
+        select(ProjectMember).where(ProjectMember.project_id == project_id, ProjectMember.user_id == user_id)
+    )
+    member = row.scalar_one_or_none()
+    if not member:
+        return False
+    await session.delete(member)
+    await session.flush()
+    return True
+
+
+# ─── Invites ────────────────────────────────────────────────────────────────
+
+
+async def issue_invite(
+    session: AsyncSession,
+    *,
+    tenant_id: int,
+    email: str,
+    role: Role,
+    invited_by_user_id: int,
+    project_id: int | None = None,
+    ttl_minutes: int = 60 * 24 * 7,  # 7 days — invites are not magic links
+) -> Invite:
+    invite = Invite(
+        tenant_id=tenant_id,
+        email=email.lower().strip(),
+        role=role,
+        project_id=project_id,
+        token=secrets.token_urlsafe(32),
+        expires_at=datetime.now(UTC) + timedelta(minutes=ttl_minutes),
+        invited_by_user_id=invited_by_user_id,
+    )
+    session.add(invite)
+    await session.flush()
+    return invite
+
+
+async def get_invite_by_token(session: AsyncSession, token: str) -> Invite | None:
+    row = await session.execute(select(Invite).where(Invite.token == token))
+    return row.scalar_one_or_none()
+
+
+async def list_pending_invites(session: AsyncSession, tenant_id: int) -> list[Invite]:
+    rows = await session.execute(
+        select(Invite).where(Invite.tenant_id == tenant_id, Invite.used_at.is_(None)).order_by(Invite.created_at.desc())
+    )
+    return list(rows.scalars())
+
+
+async def revoke_invite(session: AsyncSession, invite: Invite) -> None:
+    await session.delete(invite)
+    await session.flush()
+
+
+async def redeem_invite(session: AsyncSession, token: str) -> User | None:
+    """Atomically: validate invite, create user, optionally add to project, mark used.
+
+    Returns the new (or existing) User, or None if invite invalid/expired/used.
+    """
+    invite = await get_invite_by_token(session, token)
+    if not invite or invite.used_at is not None:
+        return None
+    if invite.expires_at < datetime.now(UTC):
+        return None
+
+    existing = await get_user_by_email(session, invite.email)
+    if existing:
+        # User already exists (e.g. invited again into a different project).
+        # Don't mutate role; just attach to project if requested.
+        user = existing
+    else:
+        user = User(email=invite.email, tenant_id=invite.tenant_id, role=invite.role)
+        session.add(user)
+        await session.flush()
+
+    if invite.project_id is not None:
+        await add_project_member(session, invite.project_id, user.id)
+
+    invite.used_at = datetime.now(UTC)
+    await session.flush()
+    return user
+
+
 # ─── API keys ───────────────────────────────────────────────────────────────
 
 
-async def issue_api_key(
-    session: AsyncSession, project_id: int, label: str, scope: str = "write"
-) -> tuple[ApiKey, str]:
+async def issue_api_key(session: AsyncSession, project_id: int, label: str, scope: str = "write") -> tuple[ApiKey, str]:
     full, prefix = new_api_key()
     key = ApiKey(
         project_id=project_id,
@@ -103,9 +280,7 @@ async def project_for_chat(session: AsyncSession, platform: str, chat_id: str) -
     return row.scalar_one_or_none()
 
 
-async def link_chat(
-    session: AsyncSession, project_id: int, platform: str, chat_id: str, title: str | None
-) -> ChatLink:
+async def link_chat(session: AsyncSession, project_id: int, platform: str, chat_id: str, title: str | None) -> ChatLink:
     link = ChatLink(project_id=project_id, platform=platform, chat_id=chat_id, title=title)
     session.add(link)
     await session.flush()
@@ -114,9 +289,7 @@ async def link_chat(
 
 async def list_chat_links(session: AsyncSession, project_id: int) -> list[ChatLink]:
     rows = await session.execute(
-        select(ChatLink)
-        .where(ChatLink.project_id == project_id)
-        .order_by(ChatLink.created_at.desc())
+        select(ChatLink).where(ChatLink.project_id == project_id).order_by(ChatLink.created_at.desc())
     )
     return list(rows.scalars())
 
@@ -154,9 +327,7 @@ async def redeem_chat_link_token(
 
     Returns the new ChatLink, or None if token invalid/expired/used or chat already linked.
     """
-    row = await session.execute(
-        select(ChatLinkToken).where(ChatLinkToken.token == raw_token)
-    )
+    row = await session.execute(select(ChatLinkToken).where(ChatLinkToken.token == raw_token))
     token = row.scalar_one_or_none()
     if not token or token.used_at is not None:
         return None
@@ -169,9 +340,7 @@ async def redeem_chat_link_token(
     if existing:
         return None
 
-    link = ChatLink(
-        project_id=token.project_id, platform=platform, chat_id=chat_id, title=chat_title
-    )
+    link = ChatLink(project_id=token.project_id, platform=platform, chat_id=chat_id, title=chat_title)
     session.add(link)
     token.used_at = datetime.now(UTC)
     token.used_chat_id = chat_id
@@ -210,9 +379,7 @@ async def create_feedback(
     return fb
 
 
-async def get_feedback_by_public_id(
-    session: AsyncSession, project_id: int, public_id: str
-) -> Feedback | None:
+async def get_feedback_by_public_id(session: AsyncSession, project_id: int, public_id: str) -> Feedback | None:
     row = await session.execute(
         select(Feedback).where(Feedback.project_id == project_id, Feedback.public_id == public_id)
     )
@@ -252,9 +419,7 @@ async def update_feedback_status(
 
 async def stats_for_project(session: AsyncSession, project_id: int) -> dict[str, int]:
     rows = await session.execute(
-        select(Feedback.status, func.count())
-        .where(Feedback.project_id == project_id)
-        .group_by(Feedback.status)
+        select(Feedback.status, func.count()).where(Feedback.project_id == project_id).group_by(Feedback.status)
     )
     out = {s.value: 0 for s in FeedbackStatus}
     for status, count in rows:

@@ -17,7 +17,10 @@
       </a>
       <nav class="flex items-center gap-4 text-sm">
         {% if request.session.get('email') %}
-          <a href="/app" class="text-zinc-600 hover:text-zinc-900">Dashboard</a>
+          <a href="/app" class="text-zinc-600 hover:text-zinc-900">Projects</a>
+          {% if me is defined and me and me.is_admin %}
+            <a href="/app/team" class="text-zinc-600 hover:text-zinc-900">Team</a>
+          {% endif %}
           <span class="text-zinc-400">{{ request.session.get('email') }}</span>
           <form action="/logout" method="post" class="inline">
             <button class="text-zinc-600 hover:text-zinc-900">Sign out</button>

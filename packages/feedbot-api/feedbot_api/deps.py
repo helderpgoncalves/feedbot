@@ -1,3 +1,7 @@
+"""FastAPI dependencies — sessions, authn, authz."""
+
+from __future__ import annotations
+
 import hmac
 import os
 from collections.abc import AsyncIterator
@@ -5,8 +9,13 @@ from functools import lru_cache
 
 from fastapi import Depends, Header, HTTPException, Request, status
 from feedbot_core.db import make_engine, make_sessionmaker
-from feedbot_core.models import ApiKey, Project
-from feedbot_core.repos import authenticate_api_key
+from feedbot_core.models import ApiKey, Project, Role, User
+from feedbot_core.repos import (
+    authenticate_api_key,
+    get_project_by_slug,
+    get_user_by_email,
+    user_can_access_project,
+)
 from feedbot_core.settings import CoreSettings
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -32,6 +41,9 @@ async def get_session() -> AsyncIterator[AsyncSession]:
             raise
 
 
+# ─── REST API auth (bearer fbk_*) ───────────────────────────────────────────
+
+
 async def get_api_key(
     authorization: str | None = Header(default=None),
     session: AsyncSession = Depends(get_session),
@@ -55,18 +67,10 @@ async def get_project_from_key(
     return project
 
 
-async def require_session_user(request: Request) -> str:
-    email = request.session.get("email")
-    if not email:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "login required")
-    return email
+# ─── Bot token (shared secret, server-side only) ────────────────────────────
 
 
 async def require_bot_token(authorization: str | None = Header(default=None)) -> None:
-    """Constant-time check of the shared bot secret. Used to authorize /v1/internal/*.
-
-    Bot token is server-side only — it is *never* exposed to the user, browser, or MCP.
-    """
     expected = os.getenv("FEEDBOT_BOT_TOKEN", "")
     if not expected:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "bot ingestion disabled")
@@ -75,3 +79,60 @@ async def require_bot_token(authorization: str | None = Header(default=None)) ->
     raw = authorization.split(" ", 1)[1].strip()
     if not hmac.compare_digest(raw, expected):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid bot token")
+
+
+# ─── Dashboard auth (session cookie + DB lookup) ────────────────────────────
+
+
+async def require_user(request: Request, session: AsyncSession = Depends(get_session)) -> User:
+    """Resolve the logged-in user from the session cookie.
+
+    Raises 401 if not logged in; 401 if the session points at an email we no
+    longer have (e.g. user was deleted while logged in).
+    """
+    email = request.session.get("email")
+    if not email:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "login required")
+    user = await get_user_by_email(session, email)
+    if not user:
+        request.session.clear()
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "session no longer valid")
+    return user
+
+
+async def require_tenant_admin(user: User = Depends(require_user)) -> User:
+    """Owner or admin. Used for tenant-wide actions (invite, create project, etc.)."""
+    if user.role not in (Role.OWNER, Role.ADMIN):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "admin role required")
+    return user
+
+
+async def require_owner(user: User = Depends(require_user)) -> User:
+    """Owner only. Used for actions that affect the owner itself."""
+    if user.role != Role.OWNER:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "owner role required")
+    return user
+
+
+async def require_project_access(
+    slug: str,
+    user: User = Depends(require_user),
+    session: AsyncSession = Depends(get_session),
+) -> tuple[User, Project]:
+    """Resolve a project by slug and ensure the current user can see it."""
+    project = await get_project_by_slug(session, user.tenant_id, slug)
+    if not project:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "project not found")
+    if not await user_can_access_project(session, user, project):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "project not found")
+    return user, project
+
+
+async def require_project_admin(
+    pair: tuple[User, Project] = Depends(require_project_access),
+) -> tuple[User, Project]:
+    """Mutating ops on the project (keys, chat-links, members) require admin role."""
+    user, project = pair
+    if not user.is_admin:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "admin role required")
+    return user, project

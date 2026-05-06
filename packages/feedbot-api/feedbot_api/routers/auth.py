@@ -1,49 +1,98 @@
+"""Email magic-link login. Closed-loop: only existing users can authenticate."""
+
+from __future__ import annotations
+
+import contextlib
 import secrets
 
-from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
-from feedbot_core.repos import consume_magic_link, get_or_create_user, issue_magic_link
+from fastapi import APIRouter, Depends, Form, Request, status
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from feedbot_core.repos import consume_magic_link, get_user_by_email, issue_magic_link
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from feedbot_api.deps import get_session
-from feedbot_api.templating import templates
+from feedbot_api.email_backend import email_backend_from_env, is_console_backend_unsafe_for_prod
+from feedbot_api.rate_limit import limiter
+from feedbot_api.templating import render
 
 router = APIRouter(tags=["auth"])
 
 
 @router.get("/login", response_class=HTMLResponse)
-async def login_form(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+async def login_form(request: Request) -> Response:
+    return render(request, "login.html", {})
 
 
 @router.post("/login")
+@limiter.limit("5/15minutes")
 async def login_submit(
-    request: Request, email: str = Form(...), session: AsyncSession = Depends(get_session)
-):
-    raw = secrets.token_urlsafe(24)
-    await issue_magic_link(session, email, raw)
-    base = str(request.base_url).rstrip("/")
-    link = f"{base}/login/verify?email={email}&token={raw}"
-    # Console backend: print link for the dev to copy.
-    print(f"\n[feedbot] magic link for {email}: {link}\n", flush=True)
-    return templates.TemplateResponse("login_sent.html", {"request": request, "email": email})
+    request: Request,
+    email: str = Form(...),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    email = email.lower().strip()
+
+    if is_console_backend_unsafe_for_prod():
+        return render(
+            request,
+            "login.html",
+            {
+                "error": (
+                    "Email delivery is not configured on this deployment. Set EMAIL_BACKEND=smtp and SMTP_* env vars."
+                ),
+            },
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    user = await get_user_by_email(session, email)
+    if user is not None:
+        raw = secrets.token_urlsafe(24)
+        await issue_magic_link(session, email, raw)
+        base = str(request.base_url).rstrip("/")
+        link = f"{base}/login/verify?email={email}&token={raw}"
+        # Swallow delivery failures: leaking them here would let attackers
+        # enumerate which emails exist by timing/error-pattern analysis.
+        with contextlib.suppress(Exception):
+            email_backend_from_env().send(
+                to=email,
+                subject="Your Feedbot sign-in link",
+                body=f"Sign in to Feedbot:\n\n{link}\n\nThis link expires in 15 minutes.",
+            )
+
+    # Same response whether the email exists or not — prevents enumeration.
+    return render(request, "login_sent.html", {"email": email})
 
 
 @router.get("/login/verify")
+@limiter.limit("10/15minutes")
 async def login_verify(
-    request: Request, email: str, token: str, session: AsyncSession = Depends(get_session)
-):
+    request: Request,
+    email: str,
+    token: str,
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    email = email.lower().strip()
+    user = await get_user_by_email(session, email)
+    if user is None:
+        return render(
+            request,
+            "login.html",
+            {"error": "invalid or expired link"},
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
     ok = await consume_magic_link(session, email, token)
     if not ok:
-        return templates.TemplateResponse(
-            "login.html", {"request": request, "error": "invalid or expired link"}, status_code=400
+        return render(
+            request,
+            "login.html",
+            {"error": "invalid or expired link"},
+            status_code=status.HTTP_400_BAD_REQUEST,
         )
-    await get_or_create_user(session, email)
     request.session["email"] = email
-    return RedirectResponse("/app", status_code=303)
+    return RedirectResponse("/app", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.post("/logout")
-async def logout(request: Request):
+async def logout(request: Request) -> Response:
     request.session.clear()
-    return RedirectResponse("/", status_code=303)
+    return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)

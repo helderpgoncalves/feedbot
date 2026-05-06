@@ -71,9 +71,7 @@ async def ingest(body: IngestIn, session: AsyncSession = Depends(get_session)):
 
 @router.post("/redeem-link", response_model=RedeemOut)
 async def redeem_link(body: RedeemIn, session: AsyncSession = Depends(get_session)):
-    link = await redeem_chat_link_token(
-        session, body.token, body.platform, body.chat_id, body.chat_title
-    )
+    link = await redeem_chat_link_token(session, body.token, body.platform, body.chat_id, body.chat_title)
     if not link:
         raise HTTPException(400, "invalid, expired, used, or chat already linked")
     project = await session.get(Project, link.project_id)

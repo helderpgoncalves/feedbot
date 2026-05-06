@@ -12,9 +12,7 @@ class FeedbotHTTP:
         )
 
     async def list_feedbacks(self, **params: Any) -> list[dict[str, Any]]:
-        r = await self._client.get(
-            "/v1/feedbacks", params={k: v for k, v in params.items() if v is not None}
-        )
+        r = await self._client.get("/v1/feedbacks", params={k: v for k, v in params.items() if v is not None})
         r.raise_for_status()
         return r.json()
 

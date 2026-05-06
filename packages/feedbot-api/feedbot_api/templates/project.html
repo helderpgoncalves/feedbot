@@ -17,6 +17,7 @@
     {% endfor %}
   </div>
 
+  {# ─── Connected chats (admin manages, members see) ─── #}
   <section class="rounded-lg border border-zinc-200 bg-white">
     <header class="flex items-center justify-between border-b border-zinc-200 px-5 py-3">
       <h2 class="font-medium">Connected chats</h2>
@@ -54,23 +55,72 @@
           <div class="font-medium">{{ c.title or "(untitled)" }}</div>
           <code class="text-xs text-zinc-500">{{ c.platform }} · {{ c.chat_id }}</code>
         </div>
+        {% if me.is_admin %}
         <form method="post" action="/app/projects/{{ project.slug }}/chat-links/{{ c.id }}/delete"
               onsubmit="return confirm('Disconnect this chat from {{ project.slug }}?');">
           <button class="text-xs text-red-600 hover:underline">Disconnect</button>
         </form>
+        {% endif %}
       </li>
       {% else %}
       <li class="px-5 py-6 text-center text-sm text-zinc-500">No chats connected yet.</li>
       {% endfor %}
     </ul>
+    {% if me.is_admin %}
     <form method="post" action="/app/projects/{{ project.slug }}/chat-links"
           class="border-t border-zinc-100 px-5 py-4">
       <button class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">
         Generate Telegram invite
       </button>
     </form>
+    {% endif %}
   </section>
 
+  {# ─── Members (admin only) ─── #}
+  {% if me.is_admin %}
+  <section class="rounded-lg border border-zinc-200 bg-white">
+    <header class="border-b border-zinc-200 px-5 py-3">
+      <h2 class="font-medium">Members</h2>
+      <p class="text-xs text-zinc-500">Members of this project see and triage its feedback. Admins always see every project.</p>
+    </header>
+    <ul class="divide-y divide-zinc-100">
+      {% for u in members %}
+      <li class="flex items-center justify-between px-5 py-3 text-sm">
+        <div>
+          <div class="font-medium">{{ u.email }}</div>
+          <span class="text-xs text-zinc-500">{{ u.role }}</span>
+        </div>
+        {% if u.role != 'owner' and not u.is_admin %}
+        <form method="post" action="/app/projects/{{ project.slug }}/members/{{ u.id }}/delete">
+          <button class="text-xs text-red-600 hover:underline">Remove</button>
+        </form>
+        {% endif %}
+      </li>
+      {% else %}
+      <li class="px-5 py-6 text-center text-sm text-zinc-500">No project-specific members. Admins always have access.</li>
+      {% endfor %}
+    </ul>
+    {% if addable_users %}
+    <form method="post" action="/app/projects/{{ project.slug }}/members"
+          class="flex gap-3 border-t border-zinc-100 px-5 py-4">
+      <select name="email" required class="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm">
+        {% for u in addable_users %}
+          <option value="{{ u.email }}">{{ u.email }} ({{ u.role }})</option>
+        {% endfor %}
+      </select>
+      <button class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">Add member</button>
+    </form>
+    {% else %}
+    <p class="border-t border-zinc-100 px-5 py-4 text-xs text-zinc-500">
+      Everyone in the team is already a member or has admin access.
+      <a href="/app/team" class="text-zinc-900 underline">Invite more teammates →</a>
+    </p>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  {# ─── API keys (admin only) ─── #}
+  {% if me.is_admin %}
   <section class="rounded-lg border border-zinc-200 bg-white">
     <header class="flex items-center justify-between border-b border-zinc-200 px-5 py-3">
       <h2 class="font-medium">API keys</h2>
@@ -99,7 +149,9 @@
       <button class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">Issue key</button>
     </form>
   </section>
+  {% endif %}
 
+  {# ─── Feedback (everyone with access sees) ─── #}
   <section class="rounded-lg border border-zinc-200 bg-white">
     <header class="border-b border-zinc-200 px-5 py-3">
       <h2 class="font-medium">Feedback</h2>
@@ -119,7 +171,7 @@
       </li>
       {% else %}
       <li class="px-5 py-10 text-center text-sm text-zinc-500">
-        No feedback yet. Connect a Telegram chat above to start collecting.
+        No feedback yet.{% if me.is_admin %} Connect a Telegram chat above to start collecting.{% endif %}
       </li>
       {% endfor %}
     </ul>

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Owner created · Feedbot{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-md space-y-4 text-center">
+  <h1 class="text-2xl font-semibold">Owner account created ✅</h1>
+  <p class="text-zinc-600">
+    {% if fallback_link %}
+      Email delivery isn't configured on this deployment, so here's your one-time
+      sign-in link. Open it now (expires in 15 minutes):
+    {% else %}
+      A sign-in link has been sent to <strong>{{ email }}</strong>. Check your inbox.
+    {% endif %}
+  </p>
+  {% if fallback_link %}
+  <a href="{{ fallback_link }}"
+     class="inline-block rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">
+    Sign in now
+  </a>
+  <p class="rounded bg-amber-50 p-3 text-left text-xs text-amber-900 break-all">{{ fallback_link }}</p>
+  <p class="text-xs text-zinc-500">
+    Configure SMTP (set <code>EMAIL_BACKEND=smtp</code> and the SMTP_* env vars) before inviting others.
+  </p>
+  {% endif %}
+</div>
+{% endblock %}

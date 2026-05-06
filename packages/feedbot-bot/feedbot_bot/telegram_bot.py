@@ -57,9 +57,7 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     args = ctx.args or []
     if not args or not args[0].startswith("link_"):
         if chat.type == ChatType.PRIVATE:
-            await msg.reply_text(
-                "Hi 👋 I'm Feedbot. Add me to a group and connect it to a project from the dashboard."
-            )
+            await msg.reply_text("Hi 👋 I'm Feedbot. Add me to a group and connect it to a project from the dashboard.")
         return
 
     token = args[0][len("link_") :]

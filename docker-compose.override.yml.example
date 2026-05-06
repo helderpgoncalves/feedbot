@@ -1,0 +1,9 @@
+## Local dev override — copy to docker-compose.override.yml to enable.
+## Docker Compose auto-loads `docker-compose.override.yml` when present.
+## Use this when you want direct access to the Postgres container from
+## your host (psql, GUI clients, etc.).
+
+services:
+  db:
+    ports:
+      - "5432:5432"

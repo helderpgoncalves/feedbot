@@ -45,9 +45,7 @@ async def list_(
     project: Project = Depends(get_project_from_key),
     session: AsyncSession = Depends(get_session),
 ):
-    rows = await list_feedbacks(
-        session, project.id, status=status, type=type, severity=severity, limit=limit
-    )
+    rows = await list_feedbacks(session, project.id, status=status, type=type, severity=severity, limit=limit)
     return [_to_out(r, project) for r in rows]
 
 
