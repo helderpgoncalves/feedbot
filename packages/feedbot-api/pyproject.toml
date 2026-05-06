@@ -1,0 +1,21 @@
+[project]
+name = "feedbot-api"
+version = "0.1.0"
+description = "Core API and web dashboard for Feedbot."
+requires-python = ">=3.11"
+dependencies = [
+    "feedbot-core",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+    "itsdangerous>=2.2",
+    "httpx>=0.27",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["feedbot_api"]

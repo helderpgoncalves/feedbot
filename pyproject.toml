@@ -1,0 +1,27 @@
+[project]
+name = "feedbot"
+version = "0.1.0"
+description = "Turn your community chat into a structured product feedback pipeline, with first-class MCP support for Claude Code."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Feedbot contributors" }]
+
+[tool.uv.workspace]
+members = [
+    "packages/feedbot-core",
+    "packages/feedbot-api",
+    "packages/feedbot-bot",
+    "packages/feedbot-mcp",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
+
+[tool.pytest.ini_options]
+testpaths = ["packages/*/tests"]
+asyncio_mode = "auto"

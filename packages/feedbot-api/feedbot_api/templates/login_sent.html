@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="mx-auto max-w-md space-y-3 text-center">
+  <h1 class="text-2xl font-semibold">Check your email</h1>
+  <p class="text-zinc-600">A magic link is on its way to <strong>{{ email }}</strong>.</p>
+  <p class="text-xs text-zinc-500">In dev mode, the link is printed to the API console.</p>
+</div>
+{% endblock %}

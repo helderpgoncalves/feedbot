@@ -1,0 +1,61 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff
+          for p in packages/*; do pip install -e "$p"; done
+      - name: Lint
+        run: ruff check packages/
+      - name: Import smoke test
+        run: python -c "import feedbot_core, feedbot_api, feedbot_bot, feedbot_mcp"
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build api image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/feedbot-api/Dockerfile
+          push: false
+          tags: feedbot-api:ci
+      - name: Build bot image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/feedbot-bot/Dockerfile
+          push: false
+          tags: feedbot-bot:ci
+
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

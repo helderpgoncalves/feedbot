@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "feedbot": {
+      "command": "feedbot-mcp",
+      "args": [],
+      "env": {
+        "FEEDBOT_API_URL": "http://localhost:8000",
+        "FEEDBOT_API_KEY": "fbk_live_replace_me"
+      }
+    }
+  }
+}

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Discussion
+    url: https://github.com/helderpgoncalves/feedbot/discussions
+    about: Design questions, proposals, "how do I..." — start here before opening an issue.
+  - name: 🔒 Security
+    url: https://github.com/helderpgoncalves/feedbot/security/advisories/new
+    about: Report a security vulnerability privately. Please don't use public issues.
