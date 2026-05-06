@@ -84,36 +84,36 @@ Full walkthrough — including SMTP, Telegram, and the MCP server — in **[`doc
 
 ## 🔌 Wire up Claude Code
 
-Reference: <https://code.claude.com/docs/en/mcp>.
+The Feedbot API serves the MCP protocol natively over **Streamable HTTP** at `/mcp`. No extra process to run; auth is the project's API key. Reference: <https://code.claude.com/docs/en/mcp>.
+
+### CLI (recommended)
 
 ```bash
-pip install -e packages/feedbot-mcp
-
 claude mcp add feedbot \
-  --transport stdio \
-  --env FEEDBOT_API_URL=http://localhost:8000 \
-  --env FEEDBOT_API_KEY=fbk_live_... \
-  -- feedbot-mcp
+  --transport http \
+  --header "Authorization: Bearer fbk_live_..." \
+  https://feedbot.example.com/mcp/
 ```
 
-Or commit a project-scoped `.mcp.json`:
+### Project-scope `.mcp.json` (committed, shared with the team)
 
 ```json
 {
   "mcpServers": {
     "feedbot": {
-      "command": "feedbot-mcp",
-      "args": [],
-      "env": {
-        "FEEDBOT_API_URL": "http://localhost:8000",
-        "FEEDBOT_API_KEY": "fbk_live_..."
+      "type": "http",
+      "url": "https://feedbot.example.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer fbk_live_..."
       }
     }
   }
 }
 ```
 
-> **Flag order matters.** All flags before the server name; then `--`; then the command. ([Why](https://code.claude.com/docs/en/mcp))
+> **Different projects get different keys.** Each Claude Code workspace has its own `.mcp.json` with a key for that project. Same MCP server, isolated data — guaranteed by the auth layer.
+
+> **The stdio package (`feedbot-mcp`) is deprecated** but still works for local-only setups. New deployments should use the HTTP endpoint.
 
 In Claude Code: *"What new bugs do we have?"* — done.
 

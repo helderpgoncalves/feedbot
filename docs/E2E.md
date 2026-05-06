@@ -93,23 +93,56 @@ In `/app/team`:
 4. As an admin, go back to your owner session → project page → **Members** → add the new user.
 5. Confirm the new user (in the incognito window) only sees projects they were added to.
 
-## 7. Hook up Claude Code via MCP
+## 7. Hook up Claude Code via MCP (HTTP, recommended)
+
+The Feedbot API exposes the MCP protocol natively at `/mcp` over Streamable HTTP. **No extra process to run** — the same `fbk_*` key authenticates JSON-RPC calls.
 
 ```bash
-pip install -e packages/feedbot-mcp
-
 claude mcp add feedbot \
-  --transport stdio \
-  --env FEEDBOT_API_URL=http://localhost:8000 \
-  --env FEEDBOT_API_KEY=$KEY \
-  -- feedbot-mcp
+  --transport http \
+  --header "Authorization: Bearer $KEY" \
+  http://localhost:8000/mcp/
 
-claude mcp list   # should show feedbot
+claude mcp list   # should show feedbot (http)
+```
+
+Or commit a project-scoped `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "feedbot": {
+      "type": "http",
+      "url": "http://localhost:8000/mcp/",
+      "headers": {
+        "Authorization": "Bearer fbk_live_..."
+      }
+    }
+  }
+}
 ```
 
 Inside Claude Code: *"What feedback is open in the demo project?"* — Claude calls `list_feedbacks` and prints the row from step 5.
 
-> Reference: <https://code.claude.com/docs/en/mcp>. Flag order: all flags before the server name; then `--`; then the command.
+> Reference: <https://code.claude.com/docs/en/mcp>. The stdio package (`feedbot-mcp`) is deprecated; use HTTP for new setups.
+
+### Quick curl smoke test
+
+```bash
+# initialize
+curl -s -X POST http://localhost:8000/mcp/ \
+  -H "Authorization: Bearer $KEY" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","method":"initialize","id":1,"params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"curl","version":"0"}}}'
+
+# list tools
+curl -s -X POST http://localhost:8000/mcp/ \
+  -H "Authorization: Bearer $KEY" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","method":"tools/list","id":2}'
+```
 
 ## 8. Telegram (one bot, N projects)
 

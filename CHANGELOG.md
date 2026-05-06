@@ -5,6 +5,8 @@ All notable changes to this project will be documented here. Format follows [Kee
 ## [Unreleased]
 
 ### Added
+- **MCP via Streamable HTTP at `/mcp`** — the Feedbot API serves the MCP protocol natively now, no proxy process. Auth is the same `fbk_live_*` API key the rest of the platform uses. Project-scope is automatic: a key carries its project, so different Claude Code workspaces with different keys see different data — verified end-to-end with cross-project isolation tests. Wire up with `claude mcp add feedbot --transport http --header "Authorization: Bearer ..." https://.../mcp/` (per [docs](https://code.claude.com/docs/en/mcp)).
+- **MCP tools**: `list_feedbacks`, `get_feedback`, `update_status`, `add_note`, `reply_to_user`, `request_more_info` (asks the reporter for more info and resets status to `triaged`), `get_stats`, `search_feedbacks`, `create_feedback`. Read-only keys cannot mutate.
 - **First-run setup (`/setup`)** — Coolify-style onboarding when the database is empty. Creates the owner account and sends them the first magic link.
 - **Roles**: `owner`, `admin`, `member`. Members only see projects they were explicitly added to.
 - **Invites** with 7-day single-use tokens, sent via email by the team admin.
@@ -25,6 +27,9 @@ All notable changes to this project will be documented here. Format follows [Kee
 - **Login is closed**: `/login` no longer auto-creates accounts. Same response whether the email exists or not (no enumeration).
 - Magic-link refused when `EMAIL_BACKEND=console` and `FEEDBOT_BASE_URL` is `https://` — prevents silently broken production deployments.
 - Session cookies are now `https_only` when serving over HTTPS, `same_site=lax`.
+
+### Deprecated
+- The `feedbot-mcp` stdio package is deprecated in favor of `/mcp` HTTP. It still works for local-only setups but new deployments should use the HTTP endpoint.
 
 ## [0.1.0] - planned
 
