@@ -5,6 +5,12 @@ All notable changes to this project will be documented here. Format follows [Kee
 ## [Unreleased]
 
 ### Added
+- **LLM-powered classification** — every inbound feedback can be auto-triaged into `type`, `severity`, `summary`, `tags`, `language`, `sentiment` using OpenAI or Anthropic structured outputs. Configured per project via `/app/projects/<slug>/llm`, with the API key encrypted at rest using a Fernet key derived from `FEEDBOT_SECRET_KEY`.
+- **Provider plug-in registry** in `feedbot_core/llm/` — adding a new provider (Gemini, Groq, Ollama…) is one new file with a `@register("name")` class that implements `ProviderProtocol`. The settings UI picks it up automatically. OpenAI and Anthropic ship out of the box.
+- **Cost tracking** — every LLM call writes a row to `llm_calls` with `provider`, `model`, `input_tokens`, `output_tokens`, `usd_cost`, `latency_ms`, `status`. The settings page shows month-to-date spend and the last 50 calls. Pricing is computed server-side from `feedbot_core/llm/pricing.py` so historical costs survive provider price changes.
+- **Monthly budget** — optional `monthly_budget_usd` per project. When the running total hits the cap, classification stops and is logged with `status=over_budget` until the next calendar month.
+- **`Test connection` button** on the LLM settings page — runs a real classification round-trip against a sample input and stores the outcome (`last_test_ok`, `last_test_error`).
+- **Structured logging** for every LLM call (provider, model, tokens, cost, latency, status, project, feedback id).
 - **MCP via Streamable HTTP at `/mcp`** — the Feedbot API serves the MCP protocol natively now, no proxy process. Auth is the same `fbk_live_*` API key the rest of the platform uses. Project-scope is automatic: a key carries its project, so different Claude Code workspaces with different keys see different data — verified end-to-end with cross-project isolation tests. Wire up with `claude mcp add feedbot --transport http --header "Authorization: Bearer ..." https://.../mcp/` (per [docs](https://code.claude.com/docs/en/mcp)).
 - **MCP tools**: `list_feedbacks`, `get_feedback`, `update_status`, `add_note`, `reply_to_user`, `request_more_info` (asks the reporter for more info and resets status to `triaged`), `get_stats`, `search_feedbacks`, `create_feedback`. Read-only keys cannot mutate.
 - **First-run setup (`/setup`)** — Coolify-style onboarding when the database is empty. Creates the owner account and sends them the first magic link.

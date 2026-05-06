@@ -10,6 +10,9 @@ dependencies = [
     "pydantic>=2.7",
     "pydantic-settings>=2.3",
     "argon2-cffi>=23.1",
+    "cryptography>=42",
+    "openai>=1.40",
+    "anthropic>=0.34",
 ]
 
 [build-system]

@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title %}{{ project.name }} · LLM · Feedbot{% endblock %}
+{% block content %}
+<section class="space-y-8">
+  <header>
+    <a href="/app/projects/{{ project.slug }}" class="text-sm text-zinc-500 hover:text-zinc-700">← {{ project.name }}</a>
+    <h1 class="mt-1 text-2xl font-semibold">LLM classification</h1>
+    <p class="text-sm text-zinc-600">
+      Auto-triage incoming feedback into type, severity, summary, tags, language, and sentiment.
+    </p>
+  </header>
+
+  {# ─── Stats badge ─── #}
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+    <div class="rounded-lg border border-zinc-200 bg-white p-4">
+      <div class="text-xs uppercase tracking-wide text-zinc-500">This month</div>
+      <div class="mt-1 text-2xl font-semibold">${{ "%.4f" | format(month_to_date_usd) }}</div>
+    </div>
+    <div class="rounded-lg border border-zinc-200 bg-white p-4">
+      <div class="text-xs uppercase tracking-wide text-zinc-500">Status</div>
+      <div class="mt-1 text-2xl font-semibold">
+        {% if settings.enabled and settings.provider != 'none' %}
+          <span class="rounded bg-emerald-100 px-2 py-0.5 text-sm uppercase text-emerald-800">enabled</span>
+        {% else %}
+          <span class="rounded bg-zinc-100 px-2 py-0.5 text-sm uppercase text-zinc-700">off</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="rounded-lg border border-zinc-200 bg-white p-4">
+      <div class="text-xs uppercase tracking-wide text-zinc-500">Last test</div>
+      <div class="mt-1 text-sm">
+        {% if settings.last_test_at %}
+          {% if settings.last_test_ok %}
+            <span class="rounded bg-emerald-100 px-1.5 py-0.5 text-xs uppercase text-emerald-800">OK</span>
+          {% else %}
+            <span class="rounded bg-red-100 px-1.5 py-0.5 text-xs uppercase text-red-800">FAIL</span>
+          {% endif %}
+          <span class="ml-2 text-zinc-500">{{ settings.last_test_at.strftime('%Y-%m-%d %H:%M') }}</span>
+          {% if settings.last_test_error %}
+            <div class="mt-1 truncate text-xs text-red-700" title="{{ settings.last_test_error }}">{{ settings.last_test_error[:80] }}</div>
+          {% endif %}
+        {% else %}
+          <span class="text-zinc-400">never</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# ─── Configuration form ─── #}
+  <section class="rounded-lg border border-zinc-200 bg-white">
+    <header class="border-b border-zinc-200 px-5 py-3">
+      <h2 class="font-medium">Configuration</h2>
+    </header>
+    <form method="post" action="/app/projects/{{ project.slug }}/llm" class="space-y-4 p-5 text-sm">
+      <label class="block">
+        <span class="text-zinc-700">Provider</span>
+        <select name="provider" class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm">
+          <option value="none" {% if settings.provider == 'none' %}selected{% endif %}>none (off)</option>
+          {% for p_name, p_info in providers.items() %}
+            <option value="{{ p_name }}" {% if settings.provider == p_name %}selected{% endif %}>
+              {{ p_name }} (default: {{ p_info.default_model }})
+            </option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label class="block">
+        <span class="text-zinc-700">Model</span>
+        <input name="model" value="{{ settings.model or '' }}" placeholder="leave empty for provider default"
+               class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm">
+        <p class="mt-1 text-xs text-zinc-500">
+          Available per provider:
+          {% for p_name, p_info in providers.items() %}
+            <span class="ml-1 inline-block rounded bg-zinc-100 px-1.5 py-0.5 text-[10px]"><strong>{{ p_name }}:</strong> {{ p_info.available_models | join(', ') }}</span>
+          {% endfor %}
+        </p>
+      </label>
+
+      <label class="block">
+        <span class="text-zinc-700">API key</span>
+        <input name="api_key" type="password" autocomplete="off"
+               placeholder="{% if has_key %}••• stored, leave empty to keep{% else %}sk-… or sk-ant-…{% endif %}"
+               class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm">
+        <p class="mt-1 text-xs text-zinc-500">Encrypted at rest with the server's secret key. Never logged.</p>
+      </label>
+
+      <label class="block">
+        <span class="text-zinc-700">Monthly budget (USD)</span>
+        <input name="monthly_budget_usd" type="number" step="0.01" min="0"
+               value="{{ settings.monthly_budget_usd or '' }}" placeholder="optional cap, e.g. 5"
+               class="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm">
+        <p class="mt-1 text-xs text-zinc-500">When the running total for the calendar month hits this, classification stops until next month.</p>
+      </label>
+
+      <label class="inline-flex items-center gap-2">
+        <input type="checkbox" name="enabled" value="1" {% if settings.enabled %}checked{% endif %}
+               class="h-4 w-4 rounded border-zinc-300">
+        <span class="text-zinc-700">Enabled</span>
+      </label>
+
+      <div class="flex gap-3 border-t border-zinc-100 pt-4">
+        <button class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">Save</button>
+        <button formaction="/app/projects/{{ project.slug }}/llm/test"
+                class="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-100">
+          Test connection
+        </button>
+      </div>
+    </form>
+  </section>
+
+  {# ─── Recent calls ─── #}
+  <section class="rounded-lg border border-zinc-200 bg-white">
+    <header class="border-b border-zinc-200 px-5 py-3">
+      <h2 class="font-medium">Recent calls (50)</h2>
+    </header>
+    {% if calls %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-xs">
+        <thead class="bg-zinc-50 text-zinc-600">
+          <tr>
+            <th class="px-5 py-2">When</th>
+            <th class="px-2 py-2">Provider</th>
+            <th class="px-2 py-2">Model</th>
+            <th class="px-2 py-2">Purpose</th>
+            <th class="px-2 py-2 text-right">In</th>
+            <th class="px-2 py-2 text-right">Out</th>
+            <th class="px-2 py-2 text-right">Cost</th>
+            <th class="px-2 py-2 text-right">ms</th>
+            <th class="px-2 py-2">Status</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-zinc-100">
+          {% for c in calls %}
+          <tr>
+            <td class="whitespace-nowrap px-5 py-2 text-zinc-500">{{ c.created_at.strftime('%m-%d %H:%M') }}</td>
+            <td class="px-2 py-2">{{ c.provider }}</td>
+            <td class="px-2 py-2 text-zinc-600">{{ c.model }}</td>
+            <td class="px-2 py-2 text-zinc-500">{{ c.purpose }}</td>
+            <td class="px-2 py-2 text-right tabular-nums">{{ c.input_tokens }}</td>
+            <td class="px-2 py-2 text-right tabular-nums">{{ c.output_tokens }}</td>
+            <td class="px-2 py-2 text-right tabular-nums">${{ "%.6f" | format(c.usd_cost) }}</td>
+            <td class="px-2 py-2 text-right tabular-nums text-zinc-500">{{ c.latency_ms }}</td>
+            <td class="px-2 py-2">
+              {% if c.status == 'ok' %}
+                <span class="rounded bg-emerald-100 px-1.5 py-0.5 uppercase text-emerald-800">ok</span>
+              {% elif c.status == 'over_budget' %}
+                <span class="rounded bg-amber-100 px-1.5 py-0.5 uppercase text-amber-800" title="{{ c.error_text }}">over budget</span>
+              {% elif c.status == 'refused' %}
+                <span class="rounded bg-orange-100 px-1.5 py-0.5 uppercase text-orange-800" title="{{ c.error_text }}">refused</span>
+              {% else %}
+                <span class="rounded bg-red-100 px-1.5 py-0.5 uppercase text-red-800" title="{{ c.error_text }}">{{ c.status }}</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="px-5 py-8 text-center text-sm text-zinc-500">No calls yet. Hit “Test connection” above.</p>
+    {% endif %}
+  </section>
+</section>
+{% endblock %}
