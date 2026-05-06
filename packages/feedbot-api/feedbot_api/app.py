@@ -20,7 +20,17 @@ from feedbot_api.deps import _sessionmaker
 from feedbot_api.email_backend import is_console_backend_unsafe_for_prod
 from feedbot_api.mcp_server import McpAuthMiddleware, build_mcp_server
 from feedbot_api.rate_limit import limiter
-from feedbot_api.routers import auth, dashboard, internal, invites, members, setup, team, v1
+from feedbot_api.routers import (
+    auth,
+    dashboard,
+    internal,
+    invites,
+    llm_settings,
+    members,
+    setup,
+    team,
+    v1,
+)
 from feedbot_api.security_headers import SecurityHeadersMiddleware
 from feedbot_api.templating import render
 
@@ -84,6 +94,7 @@ app.include_router(auth.router)
 app.include_router(invites.router)
 app.include_router(team.router)
 app.include_router(members.router)
+app.include_router(llm_settings.router)
 app.include_router(dashboard.router)
 
 # Streamable-HTTP MCP server. The sub-app handles JSON-RPC; our auth middleware

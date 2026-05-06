@@ -6,7 +6,10 @@ linked to any project, ingestion is rejected (the chat must be onboarded first
 via /v1/internal/redeem-link, triggered by /start link_<token> in Telegram).
 """
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
+from feedbot_core.llm import classify_feedback
 from feedbot_core.models import FeedbackType, Project, Severity
 from feedbot_core.repos import (
     create_feedback,
@@ -19,6 +22,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from feedbot_api.deps import get_session, require_bot_token
 from feedbot_api.routers.v1 import _to_out
 from feedbot_api.schemas import FeedbackOut
+
+log = logging.getLogger("feedbot.api.ingest")
 
 router = APIRouter(
     prefix="/v1/internal",
@@ -55,6 +60,7 @@ async def ingest(body: IngestIn, session: AsyncSession = Depends(get_session)):
     project = await project_for_chat(session, body.platform, body.chat_id)
     if not project:
         raise HTTPException(404, "chat is not linked to any project")
+
     fb = await create_feedback(
         session,
         project_id=project.id,
@@ -66,6 +72,38 @@ async def ingest(body: IngestIn, session: AsyncSession = Depends(get_session)):
         author_id=body.author_id,
         author_name=body.author_name,
     )
+
+    # Best-effort LLM classification. Errors are audited in llm_calls and never
+    # block ingestion. If the project hasn't enabled an LLM, this is a no-op.
+    outcome = await classify_feedback(
+        session,
+        project_id=project.id,
+        text=body.body,
+        feedback_id=fb.id,
+        project_hint=f"{project.name} ({project.slug})",
+    )
+    if outcome.ok and outcome.classification is not None:
+        c = outcome.classification
+        fb.type = FeedbackType(c.type)
+        fb.severity = Severity(c.severity)
+        fb.summary = c.summary
+        fb.tags = ",".join(c.tags) if c.tags else None
+        # store language as a tag-prefix so the existing tags column carries everything
+        # without another migration; downstream UI can split on `lang:`.
+        if c.language:
+            existing = fb.tags or ""
+            fb.tags = (f"lang:{c.language}," + existing).rstrip(",")
+        await session.flush()
+        log.info(
+            "ingest_classified id=%s type=%s severity=%s lang=%s sentiment=%s tags=%s",
+            fb.public_id,
+            c.type,
+            c.severity,
+            c.language,
+            c.sentiment,
+            c.tags,
+        )
+
     return _to_out(fb, project)
 
 

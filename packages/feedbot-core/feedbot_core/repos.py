@@ -13,8 +13,10 @@ from feedbot_core.models import (
     FeedbackStatus,
     FeedbackType,
     Invite,
+    LLMCall,
     MagicLinkToken,
     Project,
+    ProjectLLMSettings,
     ProjectMember,
     Role,
     Severity,
@@ -455,3 +457,67 @@ async def consume_magic_link(session: AsyncSession, email: str, raw_token: str) 
             token.used_at = now
             return True
     return False
+
+
+# ─── Project LLM settings ───────────────────────────────────────────────────
+
+
+async def get_or_create_llm_settings(session: AsyncSession, project_id: int) -> ProjectLLMSettings:
+    settings = await session.get(ProjectLLMSettings, project_id)
+    if settings is None:
+        settings = ProjectLLMSettings(project_id=project_id, provider="none", enabled=False)
+        session.add(settings)
+        await session.flush()
+    return settings
+
+
+async def save_llm_settings(
+    session: AsyncSession,
+    project_id: int,
+    *,
+    provider: str,
+    model: str | None,
+    encrypted_api_key: bytes | None,
+    enabled: bool,
+    monthly_budget_usd: float | None,
+) -> ProjectLLMSettings:
+    settings = await get_or_create_llm_settings(session, project_id)
+    settings.provider = provider
+    settings.model = model
+    if encrypted_api_key is not None:
+        settings.encrypted_api_key = encrypted_api_key
+    settings.enabled = enabled
+    settings.monthly_budget_usd = monthly_budget_usd
+    await session.flush()
+    return settings
+
+
+async def record_llm_test_result(session: AsyncSession, project_id: int, *, ok: bool, error: str | None) -> None:
+    settings = await session.get(ProjectLLMSettings, project_id)
+    if settings is None:
+        return
+    settings.last_test_at = datetime.now(UTC)
+    settings.last_test_ok = ok
+    settings.last_test_error = error
+    await session.flush()
+
+
+# ─── LLM call audit / cost queries ──────────────────────────────────────────
+
+
+async def list_recent_llm_calls(session: AsyncSession, project_id: int, limit: int = 50) -> list[LLMCall]:
+    rows = await session.execute(
+        select(LLMCall).where(LLMCall.project_id == project_id).order_by(LLMCall.created_at.desc()).limit(limit)
+    )
+    return list(rows.scalars())
+
+
+async def llm_month_to_date_cost(session: AsyncSession, project_id: int) -> float:
+    """Sum of usd_cost for the calendar month so far. Used for the badge in the UI."""
+    start = datetime.now(UTC).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    row = await session.execute(
+        select(func.coalesce(func.sum(LLMCall.usd_cost), 0.0)).where(
+            LLMCall.project_id == project_id, LLMCall.created_at >= start
+        )
+    )
+    return float(row.scalar_one() or 0.0)

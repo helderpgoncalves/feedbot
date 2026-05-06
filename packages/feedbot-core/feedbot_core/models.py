@@ -3,9 +3,11 @@ from enum import StrEnum
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     DateTime,
     ForeignKey,
     Index,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -237,3 +239,68 @@ class TelegramUpdate(Base):
 
     update_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ProjectLLMSettings(Base):
+    """Per-project LLM configuration for inbound classification.
+
+    The provider name is a free-form string (not an enum) so adding a new
+    provider is a one-class change in feedbot_core/llm/providers/. The string
+    is resolved against the runtime registry in feedbot_core.llm.base.
+    """
+
+    __tablename__ = "project_llm_settings"
+
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True)
+    provider: Mapped[str] = mapped_column(String(32), default="none")
+    model: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    # Fernet-encrypted (urlsafe base64); decrypted at use-time, never logged.
+    encrypted_api_key: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Runaway-cost protection: if set, the classifier stops calling once
+    # the running USD total for the calendar month exceeds this value.
+    monthly_budget_usd: Mapped[float | None] = mapped_column(nullable=True)
+
+    last_test_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_test_ok: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    last_test_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class LLMCall(Base):
+    """One row per LLM API call. Used for cost tracking, audit, and debugging.
+
+    Never store prompts/responses verbatim — only token counts and metadata.
+    Pricing is computed server-side from feedbot_core/llm/pricing.py at insert
+    time so historical costs survive provider price changes.
+    """
+
+    __tablename__ = "llm_calls"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    feedback_id: Mapped[int | None] = mapped_column(
+        ForeignKey("feedbacks.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
+    provider: Mapped[str] = mapped_column(String(32))
+    model: Mapped[str] = mapped_column(String(120))
+    purpose: Mapped[str] = mapped_column(String(32))  # classify | test | other
+
+    input_tokens: Mapped[int] = mapped_column(default=0)
+    output_tokens: Mapped[int] = mapped_column(default=0)
+    total_tokens: Mapped[int] = mapped_column(default=0)
+    usd_cost: Mapped[float] = mapped_column(default=0.0)
+    latency_ms: Mapped[int] = mapped_column(default=0)
+
+    status: Mapped[str] = mapped_column(String(16))  # ok | refused | error | over_budget
+    error_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (Index("ix_llm_calls_project_created", "project_id", "created_at"),)
