@@ -182,10 +182,24 @@ class Feedback(Base):
     author_platform: Mapped[str] = mapped_column(String(16))  # telegram | whatsapp | web
     author_id: Mapped[str] = mapped_column(String(128))
     author_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Where to deliver replies + done notifications. For Telegram this is the
+    # numeric chat_id (negative for groups); for whatsapp it's the jid; for
+    # web/mcp it's empty (replies are not delivered out-of-band).
+    author_chat_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
 
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     reply_to_user: Mapped[str | None] = mapped_column(Text, nullable=True)
     user_reply: Mapped[str | None] = mapped_column(Text, nullable=True)
+    user_reply_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Outbound delivery tracking — set when the bot has actually delivered the
+    # corresponding outbound message to the chat. Used by the worker to dedupe.
+    reply_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reply_sent_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    notified_done_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Last Telegram message_id we sent for this feedback. The bot uses this to
+    # match incoming "reply-to" messages back to a specific feedback.
+    last_outbound_message_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -197,6 +211,7 @@ class Feedback(Base):
     __table_args__ = (
         Index("ix_feedbacks_project_status", "project_id", "status"),
         Index("ix_feedbacks_project_created", "project_id", "created_at"),
+        Index("ix_feedbacks_outbound_pending", "reply_to_user", "reply_sent_at"),
     )
 
 
