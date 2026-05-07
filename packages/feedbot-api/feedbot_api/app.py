@@ -114,7 +114,19 @@ app.mount("/mcp", _mcp_app)
 # ─── Bootstrap gate ─────────────────────────────────────────────────────────
 
 
-_PASS_PREFIXES = ("/setup", "/static", "/healthz", "/v1/internal", "/v1", "/mcp")
+_PASS_PREFIXES = (
+    "/setup",
+    "/static",
+    "/healthz",
+    "/v1/internal",
+    "/v1",
+    "/mcp",
+    # OpenAPI surface — needs to stay reachable even before bootstrap so the
+    # SPA's `pnpm gen:api` can run against an empty instance.
+    "/openapi.json",
+    "/docs",
+    "/redoc",
+)
 
 
 @app.middleware("http")

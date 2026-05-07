@@ -1,0 +1,152 @@
+{
+	"app": {
+		"name": "Feedbot",
+		"tagline": "Turn community chat into a structured product backlog."
+	},
+	"common": {
+		"loading": "Loading…",
+		"saving": "Saving…",
+		"saved": "Saved.",
+		"cancel": "Cancel",
+		"create": "Create",
+		"delete": "Delete",
+		"confirm": "Confirm",
+		"close": "Close",
+		"back": "Back",
+		"yes": "Yes",
+		"no": "No",
+		"copy": "Copy",
+		"copied": "Copied to clipboard.",
+		"unknown_error": "Something went wrong. Try again in a moment.",
+		"network_error": "Network error — check your connection.",
+		"empty": "Nothing here yet.",
+		"required": "Required.",
+		"optional": "Optional",
+		"actions": "Actions",
+		"signed_in_as": "Signed in as {{email}}"
+	},
+	"nav": {
+		"projects": "Projects",
+		"team": "Team",
+		"security": "Security",
+		"sign_in": "Sign in",
+		"sign_out": "Sign out"
+	},
+	"auth": {
+		"login": {
+			"title": "Sign in to Feedbot",
+			"subtitle": "We'll email you a magic link. No password needed.",
+			"email_label": "Email",
+			"email_placeholder": "you@example.com",
+			"submit": "Send magic link",
+			"submitting": "Sending…",
+			"sent_title": "Check your email",
+			"sent_subtitle": "If an account matches {{email}}, a sign-in link has been sent. Open it on this device to keep the cross-device protection active.",
+			"resend": "Use another email",
+			"email_invalid": "Please enter a valid email address."
+		},
+		"magic": {
+			"verifying": "Verifying your link…",
+			"failed_title": "Link invalid or expired",
+			"failed_subtitle": "Magic links expire after 15 minutes and can only be used once.",
+			"try_again": "Request a new link"
+		},
+		"security": {
+			"title": "Active sessions",
+			"subtitle": "Each entry is a browser where you're signed in. Revoke any you don't recognise.",
+			"current": "This session",
+			"sign_out_all": "Sign out everywhere",
+			"sign_out_all_confirm": "This will end every other Feedbot session for your account. Continue?",
+			"created": "Started",
+			"last_seen": "Last seen",
+			"expires": "Expires",
+			"unknown_device": "Unknown device"
+		}
+	},
+	"projects": {
+		"title": "Projects",
+		"new": "New project",
+		"empty_title": "No projects yet",
+		"empty_subtitle": "Create your first project to start receiving feedback.",
+		"create_dialog": {
+			"title": "Create a project",
+			"slug_label": "Slug",
+			"slug_help": "Lowercase letters, numbers, hyphens. Used in URLs.",
+			"slug_invalid": "Use lowercase letters, numbers, dashes, underscores.",
+			"name_label": "Name",
+			"name_help": "Shown in the dashboard."
+		},
+		"delete_dialog": {
+			"title": "Delete {{name}}?",
+			"body": "This permanently deletes the project, every feedback, every API key, and every chat link. This cannot be undone.",
+			"confirm": "Delete project"
+		},
+		"detail": {
+			"feedback": "Feedback",
+			"members": "Members",
+			"api_keys": "API keys",
+			"chat_links": "Telegram",
+			"llm": "LLM",
+			"settings": "Settings"
+		}
+	},
+	"feedbacks": {
+		"title": "Feedback",
+		"empty": "No feedback yet — connect a Telegram chat to start receiving.",
+		"filter": {
+			"all": "All",
+			"new": "New",
+			"triaged": "Triaged",
+			"in_progress": "In progress",
+			"done": "Done",
+			"wontfix": "Won't fix"
+		}
+	},
+	"team": {
+		"title": "Team",
+		"members": "Members",
+		"invites_pending": "Pending invites",
+		"invite": "Invite teammate",
+		"invite_dialog": {
+			"title": "Invite a teammate",
+			"email_label": "Email",
+			"role_label": "Role",
+			"role_admin": "Admin — manage projects, keys, members",
+			"role_member": "Member — see and triage assigned projects only",
+			"submit": "Send invite"
+		},
+		"role_change_confirm": "Change {{email}}'s role to {{role}}?",
+		"remove_confirm": "Remove {{email}} from this workspace?",
+		"transfer_owner_title": "Transfer ownership",
+		"transfer_owner_body": "You'll be demoted to admin. The new owner can promote you back."
+	},
+	"llm": {
+		"title": "LLM auto-triage",
+		"disabled": "Disabled",
+		"provider": "Provider",
+		"model": "Model",
+		"api_key": "API key",
+		"api_key_set": "Stored — key is encrypted and never shown again.",
+		"api_key_change": "Replace key",
+		"api_key_clear": "Clear key (disables classification)",
+		"enabled": "Enable auto-classification on inbound feedback",
+		"monthly_budget": "Monthly budget (USD)",
+		"monthly_budget_help": "Stop calling the provider when this month's running cost reaches this number. Leave empty for no cap.",
+		"test_button": "Test connection",
+		"test_running": "Testing…",
+		"test_ok": "OK — round-trip succeeded.",
+		"test_failed": "Test failed: {{error}}",
+		"calls_table": {
+			"title": "Recent calls",
+			"empty": "No calls yet."
+		}
+	},
+	"errors": {
+		"401": "You need to sign in.",
+		"403": "You don't have permission.",
+		"404": "Not found.",
+		"409": "That already exists.",
+		"422": "Invalid input.",
+		"503": "The server is unavailable. Try again shortly."
+	}
+}
