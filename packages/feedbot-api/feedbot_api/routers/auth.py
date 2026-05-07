@@ -80,7 +80,9 @@ async def login_verify(
             {"error": "invalid or expired link"},
             status_code=status.HTTP_400_BAD_REQUEST,
         )
-    ok = await consume_magic_link(session, email, token)
+    ok, _nonce_hash = await consume_magic_link(session, email, token)
+    # PKCE binding (`_nonce_hash`) is wired up in F2.2 — for now we ignore it so
+    # the existing magic-link flow continues to work unchanged.
     if not ok:
         return render(
             request,

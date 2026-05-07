@@ -216,16 +216,89 @@ class Feedback(Base):
 
 
 class MagicLinkToken(Base):
-    """Single-use email login token."""
+    """Single-use email login token.
+
+    ``nonce_hash`` is set when the browser that submitted POST /login also sent
+    an ``mlnonce`` cookie. When the magic link is opened, the same browser must
+    present the matching cookie. This blocks the classic "attacker intercepts
+    the email link" scenario without breaking cross-device login (the link is
+    still allowed if the cookie is missing — we just log a `cross_device_login`
+    audit event and email the user a "new sign-in detected" notice).
+    """
 
     __tablename__ = "magic_link_tokens"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     email: Mapped[str] = mapped_column(String(255), index=True)
     token_hash: Mapped[str] = mapped_column(String(255), unique=True)
+    nonce_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Session(Base):
+    """Server-side session — replaces the cookie-signed session.
+
+    The cookie carries only ``id`` (a 32-byte url-safe token). Validation is a
+    DB lookup; revocation is a single UPDATE. Enables:
+
+    - ``POST /v1/auth/logout``                — revoke this session.
+    - ``POST /v1/auth/logout-all``            — revoke every session of this user.
+    - ``GET  /v1/auth/sessions``              — list active sessions (future
+      "Security" page).
+
+    A session is "active" when ``revoked_at IS NULL`` and ``expires_at > now()``.
+    """
+
+    __tablename__ = "sessions"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
+
+    __table_args__ = (
+        Index("ix_sessions_user_active", "user_id", "revoked_at", "expires_at"),
+    )
+
+
+class AuditEvent(Base):
+    """Structured audit log for sensitive actions.
+
+    Compliance-friendly from day one; the cloud will surface this on a Security
+    page and (later) ship to an external log sink. Use ``feedbot_core.audit.log_event``
+    rather than constructing rows by hand — it normalizes the event name and
+    serializes ``details`` as JSON.
+    """
+
+    __tablename__ = "audit_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    project_id: Mapped[int | None] = mapped_column(
+        ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    event: Mapped[str] = mapped_column(String(64), index=True)
+    ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    details: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+    __table_args__ = (
+        Index("ix_audit_events_tenant_created", "tenant_id", "created_at"),
+    )
 
 
 class ChatLinkToken(Base):

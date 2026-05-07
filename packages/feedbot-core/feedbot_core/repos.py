@@ -533,17 +533,47 @@ async def stats_for_project(session: AsyncSession, project_id: int) -> dict[str,
 # ─── Magic link tokens ──────────────────────────────────────────────────────
 
 
-async def issue_magic_link(session: AsyncSession, email: str, raw_token: str, ttl_minutes: int = 15) -> None:
+async def issue_magic_link(
+    session: AsyncSession,
+    email: str,
+    raw_token: str,
+    ttl_minutes: int = 15,
+    *,
+    nonce_hash: str | None = None,
+) -> None:
+    """Persist a magic-link token (hashed) optionally bound to a browser nonce.
+
+    ``nonce_hash`` is the hex digest of the ``mlnonce`` cookie value the
+    submitting browser carried. The link's verifier checks this hash matches
+    the cookie on the redeeming browser; mismatch is logged as
+    ``login.cross_device`` and (in lax mode) still allowed.
+    """
     token = MagicLinkToken(
         email=email,
         token_hash=hash_secret(raw_token),
+        nonce_hash=nonce_hash,
         expires_at=datetime.now(UTC) + timedelta(minutes=ttl_minutes),
     )
     session.add(token)
     await session.flush()
 
 
-async def consume_magic_link(session: AsyncSession, email: str, raw_token: str) -> bool:
+async def consume_magic_link(
+    session: AsyncSession, email: str, raw_token: str
+) -> tuple[bool, str | None]:
+    """Atomically consume the freshest matching token.
+
+    Returns ``(ok, nonce_hash_or_None)``:
+
+    - ``(True, h)``  — token consumed; ``h`` is the bound nonce hash (or None
+      if the link was issued without PKCE binding). Caller verifies the
+      cookie against ``h``.
+    - ``(False, None)`` — no valid token matched.
+
+    The two-value return lets the caller make the cross-device decision after
+    the link has been atomically marked used (so a second tap of the same link
+    cannot succeed even if the first was on the wrong device).
+    """
     rows = await session.execute(
         select(MagicLinkToken)
         .where(MagicLinkToken.email == email, MagicLinkToken.used_at.is_(None))
@@ -556,8 +586,8 @@ async def consume_magic_link(session: AsyncSession, email: str, raw_token: str) 
             continue
         if verify_secret(raw_token, token.token_hash):
             token.used_at = now
-            return True
-    return False
+            return True, token.nonce_hash
+    return False, None
 
 
 # ─── Project LLM settings ───────────────────────────────────────────────────
