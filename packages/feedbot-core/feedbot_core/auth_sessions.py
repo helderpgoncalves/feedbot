@@ -87,10 +87,18 @@ async def lookup(session: AsyncSession, session_id: str) -> SessionContext | Non
 
     Returns ``None`` if the session does not exist, was revoked, or expired.
     Side-effect: bumps ``last_seen_at`` on every successful lookup.
+
+    Implementation note: we issue a SELECT (not ``session.get``) so the row is
+    refreshed from the database on every call. ``session.get`` would return
+    the identity-map copy, which can be stale after a bulk-revoke UPDATE in
+    the same SQLAlchemy session.
     """
     if not session_id:
         return None
-    row = await session.get(DbSession, session_id)
+    result = await session.execute(
+        select(DbSession).where(DbSession.id == session_id).execution_options(populate_existing=True)
+    )
+    row = result.scalar_one_or_none()
     if row is None:
         return None
     if row.revoked_at is not None:
@@ -120,12 +128,19 @@ async def revoke(session: AsyncSession, session_id: str) -> bool:
 
 
 async def revoke_all_for_user(session: AsyncSession, user_id: int) -> int:
-    """Revoke every active session for ``user_id``. Returns count revoked."""
+    """Revoke every active session for ``user_id``. Returns count revoked.
+
+    The bulk UPDATE bypasses the SQLAlchemy identity map. We pass
+    ``synchronize_session='fetch'`` so any rows already loaded in the session
+    pick up the new ``revoked_at`` immediately — without it a subsequent
+    ``lookup`` in the same session would still see the cached row as active.
+    """
     now = _now()
     result = await session.execute(
         update(DbSession)
         .where(DbSession.user_id == user_id, DbSession.revoked_at.is_(None))
         .values(revoked_at=now)
+        .execution_options(synchronize_session="fetch")
     )
     await session.flush()
     return int(result.rowcount or 0)

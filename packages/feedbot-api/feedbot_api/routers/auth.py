@@ -224,10 +224,10 @@ async def login_verify(
 
     # ── PKCE verdict (lax mode) ───────────────────────────────────────────
     cookie_nonce = request.cookies.get(NONCE_COOKIE)
-    cross_device = False
-    if bound_nonce_hash is not None:
-        if not cookie_nonce or _hash_nonce(cookie_nonce) != bound_nonce_hash:
-            cross_device = True
+    cross_device = (
+        bound_nonce_hash is not None
+        and (not cookie_nonce or _hash_nonce(cookie_nonce) != bound_nonce_hash)
+    )
 
     # ── Issue the new server-side session ─────────────────────────────────
     db_session = await auth_sessions.create(

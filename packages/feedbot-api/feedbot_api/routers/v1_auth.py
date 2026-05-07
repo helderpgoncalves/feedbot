@@ -14,12 +14,11 @@ from __future__ import annotations
 import contextlib
 import logging
 import secrets
-from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
 from feedbot_core import audit, auth_sessions
-from feedbot_core.models import Tenant
+from feedbot_core.models import Tenant, User
 from feedbot_core.repos import (
     consume_magic_link,
     count_users,
@@ -36,16 +35,16 @@ from feedbot_api.email_backend import (
 )
 from feedbot_api.rate_limit import limiter
 from feedbot_api.routers.auth import (
+    NONCE_BYTES,
     NONCE_COOKIE,
     SESSION_COOKIE,
-    _client_ip,
     _clear_nonce_cookie,
     _clear_session_cookie,
+    _client_ip,
     _hash_nonce,
     _set_nonce_cookie,
     _set_session_cookie,
     _user_agent,
-    NONCE_BYTES,
 )
 from feedbot_api.schemas import (
     LoginIn,
@@ -54,7 +53,6 @@ from feedbot_api.schemas import (
     ProjectSummary,
     SessionOut,
 )
-from feedbot_core.models import User
 
 log = logging.getLogger("feedbot.v1.auth")
 
