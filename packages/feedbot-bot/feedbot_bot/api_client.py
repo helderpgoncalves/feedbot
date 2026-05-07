@@ -31,5 +31,21 @@ class FeedbotClient:
         r.raise_for_status()
         return r.json()
 
+    async def ingest_reply(self, payload: dict[str, Any]) -> dict[str, Any] | None:
+        r = await self._client.post("/v1/internal/ingest-reply", json=payload)
+        if r.status_code == 404:
+            return None
+        r.raise_for_status()
+        return r.json()
+
+    async def outbound_pending(self, limit: int = 20) -> list[dict[str, Any]]:
+        r = await self._client.get("/v1/internal/outbound-pending", params={"limit": limit})
+        r.raise_for_status()
+        return r.json()
+
+    async def outbound_ack(self, payload: dict[str, Any]) -> None:
+        r = await self._client.post("/v1/internal/outbound-ack", json=payload)
+        r.raise_for_status()
+
     async def aclose(self) -> None:
         await self._client.aclose()

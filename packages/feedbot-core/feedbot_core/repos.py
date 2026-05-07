@@ -364,6 +364,7 @@ async def create_feedback(
     author_platform: str = "web",
     author_id: str = "",
     author_name: str | None = None,
+    author_chat_id: str | None = None,
 ) -> Feedback:
     fb = Feedback(
         public_id=new_feedback_id(),
@@ -375,10 +376,107 @@ async def create_feedback(
         author_platform=author_platform,
         author_id=author_id,
         author_name=author_name,
+        author_chat_id=author_chat_id,
     )
     session.add(fb)
     await session.flush()
     return fb
+
+
+async def find_feedbacks_with_pending_reply(session: AsyncSession, limit: int = 50) -> list[Feedback]:
+    """Feedbacks where the team queued a reply that hasn't been delivered yet.
+
+    A reply is "pending" if reply_to_user is set AND it differs from the
+    last delivered reply_sent_message (so editing the field re-queues delivery).
+    """
+    rows = await session.execute(
+        select(Feedback)
+        .where(
+            Feedback.reply_to_user.is_not(None),
+            Feedback.author_chat_id.is_not(None),
+        )
+        .order_by(Feedback.updated_at.asc())
+        .limit(limit * 2)
+    )
+    out: list[Feedback] = []
+    for fb in rows.scalars():
+        if fb.reply_sent_message is None:
+            out.append(fb)
+        else:
+            # Strip the `[FB-...] ` prefix that the API serializer adds when
+            # comparing the delivered text against the currently-queued one.
+            delivered = fb.reply_sent_message
+            prefix = f"[{fb.public_id}] "
+            if delivered.startswith(prefix):
+                delivered = delivered[len(prefix) :]
+            if delivered != fb.reply_to_user:
+                out.append(fb)
+        if len(out) >= limit:
+            break
+    return out
+
+
+async def find_feedbacks_pending_done_notification(session: AsyncSession, limit: int = 50) -> list[Feedback]:
+    """Feedbacks that flipped to done but the reporter hasn't been told yet."""
+    rows = await session.execute(
+        select(Feedback)
+        .where(
+            Feedback.status == FeedbackStatus.DONE,
+            Feedback.notified_done_at.is_(None),
+            Feedback.author_chat_id.is_not(None),
+        )
+        .order_by(Feedback.updated_at.asc())
+        .limit(limit)
+    )
+    return list(rows.scalars())
+
+
+async def mark_reply_delivered(
+    session: AsyncSession, feedback: Feedback, message: str, telegram_message_id: str | None
+) -> None:
+    feedback.reply_sent_at = datetime.now(UTC)
+    feedback.reply_sent_message = message
+    if telegram_message_id is not None:
+        feedback.last_outbound_message_id = telegram_message_id
+    await session.flush()
+
+
+async def mark_done_notified(session: AsyncSession, feedback: Feedback, telegram_message_id: str | None) -> None:
+    feedback.notified_done_at = datetime.now(UTC)
+    if telegram_message_id is not None:
+        feedback.last_outbound_message_id = telegram_message_id
+    await session.flush()
+
+
+async def get_feedback_by_outbound_message(
+    session: AsyncSession, platform: str, chat_id: str, message_id: str
+) -> Feedback | None:
+    """Find the feedback whose last outbound message was the one being replied to.
+
+    Used by the bot when a user replies to a bot message in a connected chat:
+    we look up which feedback that message belonged to so the user_reply lands
+    on the right row.
+    """
+    rows = await session.execute(
+        select(Feedback).where(
+            Feedback.author_platform == platform,
+            Feedback.author_chat_id == chat_id,
+            Feedback.last_outbound_message_id == message_id,
+        )
+    )
+    return rows.scalar_one_or_none()
+
+
+async def record_user_reply(session: AsyncSession, feedback: Feedback, body: str) -> Feedback:
+    feedback.user_reply = body
+    feedback.user_reply_at = datetime.now(UTC)
+    feedback.status = FeedbackStatus.TRIAGED
+    await session.flush()
+    # Explicitly refresh server-default columns (updated_at) so the row is
+    # fully materialized for the response serializer; otherwise FastAPI's
+    # response_model will trigger a lazy SELECT outside the async greenlet.
+    await session.refresh(feedback, attribute_names=["updated_at"])
+    return feedback
 
 
 async def get_feedback_by_public_id(session: AsyncSession, project_id: int, public_id: str) -> Feedback | None:
@@ -416,6 +514,9 @@ async def update_feedback_status(
     if note:
         feedback.note = (feedback.note + "\n" if feedback.note else "") + note
     await session.flush()
+    # Refresh server-side onupdate columns so the response serializer doesn't
+    # trigger a lazy SELECT outside the async greenlet.
+    await session.refresh(feedback, attribute_names=["updated_at"])
     return feedback
 
 

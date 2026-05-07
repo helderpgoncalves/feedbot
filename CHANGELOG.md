@@ -5,6 +5,11 @@ All notable changes to this project will be documented here. Format follows [Kee
 ## [Unreleased]
 
 ### Added
+- **Outbound notification worker (M4)** — when status flips to `done` or the team queues a `reply_to_user`, the bot delivers the message back to the **same chat** where the feedback was first reported. Conversation stays in one thread; reporters never have to open a DM with the bot.
+- **Conversation loop** — when a user replies in chat to one of the bot's messages, the body is captured as `user_reply`, status flips to `triaged`, and Claude (or a human) sees it on the next read. The MCP `request_more_info` tool now closes the loop end-to-end.
+- **Outbound queue + audit columns** on `feedbacks`: `author_chat_id`, `reply_sent_at`, `reply_sent_message`, `notified_done_at`, `last_outbound_message_id`, `user_reply_at`. Migration `0005_feedback_delivery_tracking.py`.
+- **Bot endpoints** — `/v1/internal/outbound-pending` (bot polls), `/v1/internal/outbound-ack`, `/v1/internal/ingest-reply`. All bot-token authenticated.
+- **Bot delivery loop** — every 5 seconds the bot pulls the queue, delivers via Telegram Bot API, ack's back. Telegram `message_id` is stored so subsequent user-replies can be matched to the right feedback.
 - **LLM-powered classification** — every inbound feedback can be auto-triaged into `type`, `severity`, `summary`, `tags`, `language`, `sentiment` using OpenAI or Anthropic structured outputs. Configured per project via `/app/projects/<slug>/llm`, with the API key encrypted at rest using a Fernet key derived from `FEEDBOT_SECRET_KEY`.
 - **Provider plug-in registry** in `feedbot_core/llm/` — adding a new provider (Gemini, Groq, Ollama…) is one new file with a `@register("name")` class that implements `ProviderProtocol`. The settings UI picks it up automatically. OpenAI and Anthropic ship out of the box.
 - **Cost tracking** — every LLM call writes a row to `llm_calls` with `provider`, `model`, `input_tokens`, `output_tokens`, `usd_cost`, `latency_ms`, `status`. The settings page shows month-to-date spend and the last 50 calls. Pricing is computed server-side from `feedbot_core/llm/pricing.py` so historical costs survive provider price changes.
