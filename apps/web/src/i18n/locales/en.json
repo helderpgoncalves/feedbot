@@ -62,6 +62,24 @@
 			"last_seen": "Last seen",
 			"expires": "Expires",
 			"unknown_device": "Unknown device"
+		},
+		"setup": {
+			"title": "Set up your Feedbot",
+			"subtitle": "You're the first user — let's create the owner account for this instance.",
+			"email_label": "Owner email",
+			"email_help": "A magic-link sign-in is emailed here. Make sure you have access to it.",
+			"tenant_label": "Workspace name",
+			"tenant_help": "Shown in the dashboard header. You can change it later.",
+			"submit": "Create owner account",
+			"submitting": "Creating…",
+			"sent_title": "Check your email",
+			"sent_subtitle": "We've sent a sign-in link to {{email}}. Open it to finish setup.",
+			"back_to_login": "Back to sign in",
+			"fallback_title": "Owner created",
+			"fallback_subtitle": "{{email}} is now the owner of this instance.",
+			"fallback_alert_title": "Email not configured on this deployment",
+			"fallback_alert_body": "We couldn't deliver a magic link because SMTP isn't configured. Use the one-time link below to sign in now, then set EMAIL_BACKEND=smtp before opening this instance to other users.",
+			"fallback_signin": "Sign in now"
 		}
 	},
 	"projects": {

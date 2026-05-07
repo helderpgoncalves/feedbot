@@ -19,9 +19,7 @@ from feedbot_core.repos import (
 from feedbot_core.settings import CoreSettings
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-#: Cookie name carrying the server-side session id. Mirrored in routers/auth.py
-#: deliberately rather than imported, to keep deps.py free of circular imports.
-SESSION_COOKIE = "fb_session"
+from feedbot_api.cookies import SESSION_COOKIE
 
 
 @lru_cache

@@ -192,6 +192,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/setup-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether the deployment still needs first-run bootstrap
+         * @description Cheap check the SPA does at boot to decide whether to route the user
+         *     to ``/setup`` or to ``/login``.
+         *
+         *     No auth — there's no user yet when this matters, and post-bootstrap the
+         *     answer is a stable ``False``.
+         */
+        get: operations["setup_status_v1_setup_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bootstrap the first owner — only valid while the users table is empty
+         * @description Create the first tenant + owner user, then email them a magic link.
+         *
+         *     On deployments without working SMTP we fall back to returning the link
+         *     inline — the SPA renders it as a one-time button so the new owner can
+         *     finish onboarding without having to dig through container logs.
+         */
+        post: operations["setup_bootstrap_v1_setup_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/projects": {
         parameters: {
             query?: never;
@@ -716,394 +764,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/setup": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Setup Form */
-        get: operations["setup_form_setup_get"];
-        put?: never;
-        /** Setup Submit */
-        post: operations["setup_submit_setup_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/login": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Login Form */
-        get: operations["login_form_login_get"];
-        put?: never;
-        /** Login Submit */
-        post: operations["login_submit_login_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/login/verify": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Login Verify */
-        get: operations["login_verify_login_verify_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/logout": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Logout
-         * @description Revoke the current session and clear the cookie.
-         */
-        post: operations["logout_logout_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/invites/{token}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Invite Landing */
-        get: operations["invite_landing_invites__token__get"];
-        put?: never;
-        /** Invite Accept */
-        post: operations["invite_accept_invites__token__post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/app/team": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Team Home */
-        get: operations["team_home_app_team_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/app/team/invites": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Invite Create */
-        post: operations["invite_create_app_team_invites_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/app/team/invites/{invite_id}/revoke": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Invite Revoke */
-        post: operations["invite_revoke_app_team_invites__invite_id__revoke_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/app/team/users/{user_id}/role": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** User Set Role */
-        post: operations["user_set_role_app_team_users__user_id__role_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/app/team/users/{user_id}/delete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** User Delete */
-        post: operations["user_delete_app_team_users__user_id__delete_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/app/team/transfer-ownership": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Transfer Ownership
-         * @description Owner-only: hand the crown to another admin in the same tenant.
-         */
-        post: operations["transfer_ownership_app_team_transfer_ownership_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/app/projects/{slug}/members": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Add Member */
-        post: operations["add_member_app_projects__slug__members_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/app/projects/{slug}/members/{user_id}/delete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Remove Member */
-        post: operations["remove_member_app_projects__slug__members__user_id__delete_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/app/projects/{slug}/llm": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Llm Home */
-        get: operations["llm_home_app_projects__slug__llm_get"];
-        put?: never;
-        /** Llm Save */
-        post: operations["llm_save_app_projects__slug__llm_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/app/projects/{slug}/llm/test": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Llm Test
-         * @description Run a single classification round-trip and record the result. Useful so
-         *     admins can verify keys + model availability before ingest depends on it.
-         */
-        post: operations["llm_test_app_projects__slug__llm_test_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/app": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Home */
-        get: operations["home_app_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/app/projects": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Create Project */
-        post: operations["create_project__app_projects_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/app/projects/{slug}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Project View */
-        get: operations["project_view_app_projects__slug__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/app/projects/{slug}/keys": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Create Key */
-        post: operations["create_key__app_projects__slug__keys_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/app/projects/{slug}/chat-links": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Create Chat Link */
-        post: operations["create_chat_link__app_projects__slug__chat_links_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/app/projects/{slug}/chat-links/{link_id}/delete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Delete Chat Link */
-        post: operations["delete_chat_link__app_projects__slug__chat_links__link_id__delete_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Root */
-        get: operations["root__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/healthz": {
         parameters: {
             query?: never;
@@ -1202,83 +862,6 @@ export interface components {
             last_used_at: string | null;
             /** Revoked At */
             revoked_at: string | null;
-        };
-        /** Body_add_member_app_projects__slug__members_post */
-        Body_add_member_app_projects__slug__members_post: {
-            /** Email */
-            email: string;
-        };
-        /** Body_create_key__app_projects__slug__keys_post */
-        Body_create_key__app_projects__slug__keys_post: {
-            /** Label */
-            label: string;
-        };
-        /** Body_create_project__app_projects_post */
-        Body_create_project__app_projects_post: {
-            /** Slug */
-            slug: string;
-            /** Name */
-            name: string;
-        };
-        /** Body_invite_create_app_team_invites_post */
-        Body_invite_create_app_team_invites_post: {
-            /** Email */
-            email: string;
-            /**
-             * Role
-             * @default member
-             */
-            role: string;
-        };
-        /** Body_llm_save_app_projects__slug__llm_post */
-        Body_llm_save_app_projects__slug__llm_post: {
-            /** Provider */
-            provider: string;
-            /**
-             * Model
-             * @default
-             */
-            model: string;
-            /**
-             * Api Key
-             * @default
-             */
-            api_key: string;
-            /**
-             * Enabled
-             * @default
-             */
-            enabled: string;
-            /**
-             * Monthly Budget Usd
-             * @default
-             */
-            monthly_budget_usd: string;
-        };
-        /** Body_login_submit_login_post */
-        Body_login_submit_login_post: {
-            /** Email */
-            email: string;
-        };
-        /** Body_setup_submit_setup_post */
-        Body_setup_submit_setup_post: {
-            /** Email */
-            email: string;
-            /**
-             * Tenant Name
-             * @default
-             */
-            tenant_name: string;
-        };
-        /** Body_transfer_ownership_app_team_transfer_ownership_post */
-        Body_transfer_ownership_app_team_transfer_ownership_post: {
-            /** New Owner Id */
-            new_owner_id: number;
-        };
-        /** Body_user_set_role_app_team_users__user_id__role_post */
-        Body_user_set_role_app_team_users__user_id__role_post: {
-            /** Role */
-            role: string;
         };
         /** ChatLinkOut */
         ChatLinkOut: {
@@ -1836,6 +1419,62 @@ export interface components {
             is_current: boolean;
         };
         /**
+         * SetupIn
+         * @description Body for ``POST /v1/setup`` — first-run owner bootstrap.
+         *
+         *     Only accepted while the users table is empty; once an owner exists this
+         *     endpoint returns 410 Gone. The owner gets a magic-link emailed (or, on
+         *     deployments without SMTP, surfaced in the response) so they can sign in
+         *     immediately.
+         */
+        SetupIn: {
+            /** Email */
+            email: string;
+            /**
+             * Tenant Name
+             * @default
+             */
+            tenant_name: string;
+        };
+        /**
+         * SetupOut
+         * @description Response from ``POST /v1/setup``.
+         *
+         *     ``fallback_link`` is only populated when SMTP isn't configured (e.g.
+         *     ``EMAIL_BACKEND=console`` in production) so the owner isn't locked out
+         *     of their own instance. It's a single-use link with a 15-minute TTL; the
+         *     SPA renders it as a "click here to sign in" button.
+         */
+        SetupOut: {
+            /** Email */
+            email: string;
+            /**
+             * Delivered
+             * @description True when the magic-link email was handed off to the configured backend without raising.
+             */
+            delivered: boolean;
+            /**
+             * Fallback Link
+             * @description When SMTP isn't configured, the magic link is returned here so the bootstrapping admin can copy it.
+             */
+            fallback_link?: string | null;
+        };
+        /**
+         * SetupStatusOut
+         * @description Response from ``GET /v1/setup-status``.
+         *
+         *     The SPA polls this once at boot and routes to ``/setup`` when ``required``
+         *     is true. After bootstrap the endpoint reports ``required=False`` forever
+         *     (until the deployment is wiped), so the SPA caches it conservatively.
+         */
+        SetupStatusOut: {
+            /**
+             * Required
+             * @description True only while the users table is empty. Once an owner exists, the endpoint flips to false permanently for this DB.
+             */
+            required: boolean;
+        };
+        /**
          * Severity
          * @enum {string}
          */
@@ -2231,6 +1870,66 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    setup_status_v1_setup_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetupStatusOut"];
+                };
+            };
+        };
+    };
+    setup_bootstrap_v1_setup_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetupIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetupOut"];
+                };
+            };
+            /** @description Setup already complete. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
             };
         };
     };
@@ -3491,775 +3190,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    setup_form_setup_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/html": string;
-                };
-            };
-        };
-    };
-    setup_submit_setup_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/x-www-form-urlencoded": components["schemas"]["Body_setup_submit_setup_post"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    login_form_login_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/html": string;
-                };
-            };
-        };
-    };
-    login_submit_login_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/x-www-form-urlencoded": components["schemas"]["Body_login_submit_login_post"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    login_verify_login_verify_get: {
-        parameters: {
-            query: {
-                email: string;
-                token: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    logout_logout_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
-    invite_landing_invites__token__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                token: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/html": string;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    invite_accept_invites__token__post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                token: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    team_home_app_team_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/html": string;
-                };
-            };
-        };
-    };
-    invite_create_app_team_invites_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/x-www-form-urlencoded": components["schemas"]["Body_invite_create_app_team_invites_post"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    invite_revoke_app_team_invites__invite_id__revoke_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                invite_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    user_set_role_app_team_users__user_id__role_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/x-www-form-urlencoded": components["schemas"]["Body_user_set_role_app_team_users__user_id__role_post"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    user_delete_app_team_users__user_id__delete_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    transfer_ownership_app_team_transfer_ownership_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/x-www-form-urlencoded": components["schemas"]["Body_transfer_ownership_app_team_transfer_ownership_post"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    add_member_app_projects__slug__members_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                slug: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/x-www-form-urlencoded": components["schemas"]["Body_add_member_app_projects__slug__members_post"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    remove_member_app_projects__slug__members__user_id__delete_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                slug: string;
-                user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    llm_home_app_projects__slug__llm_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                slug: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/html": string;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    llm_save_app_projects__slug__llm_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                slug: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/x-www-form-urlencoded": components["schemas"]["Body_llm_save_app_projects__slug__llm_post"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    llm_test_app_projects__slug__llm_test_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                slug: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    home_app_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/html": string;
-                };
-            };
-        };
-    };
-    create_project__app_projects_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/x-www-form-urlencoded": components["schemas"]["Body_create_project__app_projects_post"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    project_view_app_projects__slug__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                slug: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/html": string;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_key__app_projects__slug__keys_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                slug: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/x-www-form-urlencoded": components["schemas"]["Body_create_key__app_projects__slug__keys_post"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_chat_link__app_projects__slug__chat_links_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                slug: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_chat_link__app_projects__slug__chat_links__link_id__delete_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                slug: string;
-                link_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    root__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/html": string;
                 };
             };
         };

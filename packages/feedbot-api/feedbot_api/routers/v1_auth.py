@@ -20,6 +20,7 @@ from fastapi.responses import JSONResponse
 from feedbot_core import audit, auth_sessions
 from feedbot_core.models import Tenant, User
 from feedbot_core.repos import (
+    bootstrap_owner,
     consume_magic_link,
     count_users,
     get_user_by_email,
@@ -34,17 +35,17 @@ from feedbot_api.email_backend import (
     is_console_backend_unsafe_for_prod,
 )
 from feedbot_api.rate_limit import limiter
-from feedbot_api.routers.auth import (
+from feedbot_api.cookies import (
     NONCE_BYTES,
     NONCE_COOKIE,
     SESSION_COOKIE,
-    _clear_nonce_cookie,
-    _clear_session_cookie,
-    _client_ip,
-    _hash_nonce,
-    _set_nonce_cookie,
-    _set_session_cookie,
-    _user_agent,
+    clear_nonce_cookie,
+    clear_session_cookie,
+    client_ip,
+    hash_nonce,
+    set_nonce_cookie,
+    set_session_cookie,
+    client_user_agent,
 )
 from feedbot_api.schemas import (
     LoginIn,
@@ -52,6 +53,9 @@ from feedbot_api.schemas import (
     MeOut,
     ProjectSummary,
     SessionOut,
+    SetupIn,
+    SetupOut,
+    SetupStatusOut,
 )
 
 log = logging.getLogger("feedbot.v1.auth")
@@ -98,7 +102,7 @@ async def login(
     user = await get_user_by_email(session, email)
 
     nonce_raw = secrets.token_urlsafe(NONCE_BYTES)
-    nonce_hash = _hash_nonce(nonce_raw)
+    nonce_hash = hash_nonce(nonce_raw)
 
     if user is not None:
         token_raw = secrets.token_urlsafe(24)
@@ -119,7 +123,7 @@ async def login(
             )
 
     response = JSONResponse(LoginOut(sent=True).model_dump())
-    _set_nonce_cookie(response, nonce_raw)
+    set_nonce_cookie(response, nonce_raw)
     return response
 
 
@@ -159,8 +163,8 @@ async def magic(
             event="login.fail",
             tenant_id=user.tenant_id,
             user_id=user.id,
-            ip=_client_ip(request),
-            user_agent=_user_agent(request),
+            ip=client_ip(request),
+            user_agent=client_user_agent(request),
             details={"reason": "invalid_or_expired_link", "channel": "spa"},
         )
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid or expired link")
@@ -168,22 +172,22 @@ async def magic(
     cookie_nonce = request.cookies.get(NONCE_COOKIE)
     cross_device = (
         bound_nonce_hash is not None
-        and (not cookie_nonce or _hash_nonce(cookie_nonce) != bound_nonce_hash)
+        and (not cookie_nonce or hash_nonce(cookie_nonce) != bound_nonce_hash)
     )
 
     db_session = await auth_sessions.create(
         session,
         user=user,
-        user_agent=_user_agent(request),
-        ip=_client_ip(request),
+        user_agent=client_user_agent(request),
+        ip=client_ip(request),
     )
     await audit.log_event(
         session,
         event=("login.cross_device" if cross_device else "login.ok"),
         tenant_id=user.tenant_id,
         user_id=user.id,
-        ip=_client_ip(request),
-        user_agent=_user_agent(request),
+        ip=client_ip(request),
+        user_agent=client_user_agent(request),
         details={"session_id_prefix": db_session.id[:8], "channel": "spa"},
     )
 
@@ -195,16 +199,16 @@ async def magic(
                 body=(
                     "A new sign-in to your Feedbot account just happened from a "
                     "different browser than the one that requested the magic link.\n\n"
-                    f"  IP:         {_client_ip(request) or 'unknown'}\n"
-                    f"  User-agent: {_user_agent(request) or 'unknown'}\n\n"
+                    f"  IP:         {client_ip(request) or 'unknown'}\n"
+                    f"  User-agent: {client_user_agent(request) or 'unknown'}\n\n"
                     "If this was you, no action is needed.\n"
                     "If not, sign in again and revoke all sessions from /security.\n"
                 ),
             )
 
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
-    _set_session_cookie(response, db_session.id)
-    _clear_nonce_cookie(response)
+    set_session_cookie(response, db_session.id)
+    clear_nonce_cookie(response)
     return response
 
 
@@ -231,12 +235,12 @@ async def logout(
             await audit.log_event(
                 session,
                 event="session.revoked",
-                ip=_client_ip(request),
-                user_agent=_user_agent(request),
+                ip=client_ip(request),
+                user_agent=client_user_agent(request),
                 details={"reason": "user_logout", "session_id_prefix": sid[:8], "channel": "spa"},
             )
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
-    _clear_session_cookie(response)
+    clear_session_cookie(response)
     return response
 
 
@@ -260,12 +264,12 @@ async def logout_all(
         event="session.revoked.bulk",
         tenant_id=me.tenant_id,
         user_id=me.id,
-        ip=_client_ip(request),
-        user_agent=_user_agent(request),
+        ip=client_ip(request),
+        user_agent=client_user_agent(request),
         details={"count": revoked, "channel": "spa"},
     )
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
-    _clear_session_cookie(response)
+    clear_session_cookie(response)
     return response
 
 
@@ -342,4 +346,75 @@ async def me(
             for p in projects
         ],
         is_setup_complete=is_setup_complete,
+    )
+
+
+# ─── First-run bootstrap ───────────────────────────────────────────────────
+
+
+@router.get(
+    "/setup-status",
+    response_model=SetupStatusOut,
+    summary="Whether the deployment still needs first-run bootstrap",
+)
+async def setup_status(session: AsyncSession = Depends(get_session)) -> SetupStatusOut:
+    """Cheap check the SPA does at boot to decide whether to route the user
+    to ``/setup`` or to ``/login``.
+
+    No auth — there's no user yet when this matters, and post-bootstrap the
+    answer is a stable ``False``.
+    """
+    return SetupStatusOut(required=(await count_users(session)) == 0)
+
+
+@router.post(
+    "/setup",
+    response_model=SetupOut,
+    summary="Bootstrap the first owner — only valid while the users table is empty",
+    responses={
+        status.HTTP_410_GONE: {"description": "Setup already complete."},
+    },
+)
+@limiter.limit("3/15minutes")
+async def setup_bootstrap(
+    request: Request,
+    body: SetupIn,
+    session: AsyncSession = Depends(get_session),
+) -> SetupOut:
+    """Create the first tenant + owner user, then email them a magic link.
+
+    On deployments without working SMTP we fall back to returning the link
+    inline — the SPA renders it as a one-time button so the new owner can
+    finish onboarding without having to dig through container logs.
+    """
+    if (await count_users(session)) > 0:
+        raise HTTPException(status.HTTP_410_GONE, "setup already complete")
+
+    email = body.email.lower().strip()
+    tenant_name = body.tenant_name.strip()
+    user = await bootstrap_owner(session, email=email, tenant_name=tenant_name)
+
+    raw = secrets.token_urlsafe(24)
+    await issue_magic_link(session, user.email, raw)
+    base = str(request.base_url).rstrip("/")
+    link = f"{base}/magic?email={user.email}&token={raw}"
+
+    delivered = False
+    if not is_console_backend_unsafe_for_prod():
+        with contextlib.suppress(Exception):
+            email_backend_from_env().send(
+                to=user.email,
+                subject="Welcome to Feedbot — sign in",
+                body=(
+                    "You're the owner of this Feedbot instance.\n\n"
+                    f"Sign in:\n\n{link}\n\n"
+                    "This link expires in 15 minutes and can be used once.\n"
+                ),
+            )
+            delivered = True
+
+    return SetupOut(
+        email=user.email,
+        delivered=delivered,
+        fallback_link=None if delivered else link,
     )

@@ -158,3 +158,62 @@ async def test_sessions_lists_only_active_with_current_marked(
     assert revoked.id not in ids
     assert any(row["is_current"] for row in rows), "exactly one row should be is_current"
     assert sum(1 for row in rows if row["is_current"]) == 1
+
+
+# ─── /v1/setup-status + /v1/setup ──────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_setup_status_required_when_db_empty(client: AsyncClient):
+    r = await client.get("/v1/setup-status")
+    assert r.status_code == 200
+    assert r.json() == {"required": True}
+
+
+@pytest.mark.asyncio
+async def test_setup_status_not_required_after_bootstrap(
+    client: AsyncClient, make_tenant, make_user
+):
+    tenant = await make_tenant()
+    await make_user(tenant=tenant, email="someone@x.com", role=Role.OWNER)
+
+    r = await client.get("/v1/setup-status")
+    assert r.status_code == 200
+    assert r.json() == {"required": False}
+
+
+@pytest.mark.asyncio
+async def test_setup_creates_owner_when_db_empty(client: AsyncClient):
+    r = await client.post(
+        "/v1/setup",
+        json={"email": "founder@x.com", "tenant_name": "Acme"},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["email"] == "founder@x.com"
+    # On the test deployment FEEDBOT_BASE_URL is http://, so the console
+    # backend is considered "safe" and we report delivered=True with no
+    # fallback link. Production-HTTPS-without-SMTP is covered separately.
+    assert body["delivered"] is True
+    assert body["fallback_link"] is None
+
+    # Second call must 410 — bootstrap is one-shot.
+    r2 = await client.post(
+        "/v1/setup",
+        json={"email": "intruder@x.com", "tenant_name": ""},
+    )
+    assert r2.status_code == 410
+
+
+@pytest.mark.asyncio
+async def test_setup_410_when_users_already_exist(
+    client: AsyncClient, make_tenant, make_user
+):
+    tenant = await make_tenant()
+    await make_user(tenant=tenant, email="existing@x.com", role=Role.OWNER)
+
+    r = await client.post(
+        "/v1/setup",
+        json={"email": "second@x.com", "tenant_name": ""},
+    )
+    assert r.status_code == 410

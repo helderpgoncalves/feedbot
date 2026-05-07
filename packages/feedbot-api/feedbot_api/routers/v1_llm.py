@@ -51,7 +51,7 @@ from feedbot_core.repos import (
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from feedbot_api.deps import get_session, require_project_admin, require_user
-from feedbot_api.routers.auth import _client_ip, _user_agent
+from feedbot_api.cookies import client_ip, client_user_agent
 from feedbot_api.schemas import (
     LLMCallOut,
     LLMSettingsIn,
@@ -200,8 +200,8 @@ async def put_llm_settings(
         tenant_id=me.tenant_id,
         user_id=me.id,
         project_id=project.id,
-        ip=_client_ip(request),
-        user_agent=_user_agent(request),
+        ip=client_ip(request),
+        user_agent=client_user_agent(request),
         details={
             "provider": body.provider,
             "model": body.model,
@@ -262,8 +262,8 @@ async def llm_test(
         tenant_id=me.tenant_id,
         user_id=me.id,
         project_id=project.id,
-        ip=_client_ip(request),
-        user_agent=_user_agent(request),
+        ip=client_ip(request),
+        user_agent=client_user_agent(request),
         details={
             "ok": outcome.ok,
             "status": outcome.status,

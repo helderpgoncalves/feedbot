@@ -57,3 +57,27 @@ export function useMe() {
 export function isAdmin(role: MeData['user']['role']): boolean {
 	return role === 'owner' || role === 'admin';
 }
+
+/**
+ * Whether the deployment still needs first-run bootstrap.
+ *
+ * Cheap public endpoint — no auth — that we read once at boot from the
+ * route guards in ``(auth)`` and ``(authed)``. After bootstrap the answer
+ * is stable, so we cache it generously.
+ */
+export const setupStatusQueryOptions = () =>
+	queryOptions({
+		queryKey: ['setup-status'] as const,
+		queryFn: async (): Promise<{ required: boolean }> => {
+			const { data, response } = await api.GET('/v1/setup-status');
+			if (!response.ok) {
+				// If the API can't even answer, assume bootstrap is done so we
+				// don't trap users in a redirect loop. /login will surface the
+				// real error.
+				return { required: false };
+			}
+			return (data as { required: boolean }) ?? { required: false };
+		},
+		staleTime: 5 * 60_000,
+		meta: { silent: true },
+	});

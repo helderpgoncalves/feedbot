@@ -68,6 +68,51 @@ class LoginOut(BaseModel):
     sent: bool = Field(description="Always true; whether the email exists is intentionally hidden.")
 
 
+class SetupStatusOut(BaseModel):
+    """Response from ``GET /v1/setup-status``.
+
+    The SPA polls this once at boot and routes to ``/setup`` when ``required``
+    is true. After bootstrap the endpoint reports ``required=False`` forever
+    (until the deployment is wiped), so the SPA caches it conservatively.
+    """
+
+    required: bool = Field(
+        description="True only while the users table is empty. Once an owner exists, the endpoint flips to false permanently for this DB."
+    )
+
+
+class SetupIn(BaseModel):
+    """Body for ``POST /v1/setup`` — first-run owner bootstrap.
+
+    Only accepted while the users table is empty; once an owner exists this
+    endpoint returns 410 Gone. The owner gets a magic-link emailed (or, on
+    deployments without SMTP, surfaced in the response) so they can sign in
+    immediately.
+    """
+
+    email: str = Field(min_length=3, max_length=255)
+    tenant_name: str = Field(default="", max_length=120)
+
+
+class SetupOut(BaseModel):
+    """Response from ``POST /v1/setup``.
+
+    ``fallback_link`` is only populated when SMTP isn't configured (e.g.
+    ``EMAIL_BACKEND=console`` in production) so the owner isn't locked out
+    of their own instance. It's a single-use link with a 15-minute TTL; the
+    SPA renders it as a "click here to sign in" button.
+    """
+
+    email: str
+    delivered: bool = Field(
+        description="True when the magic-link email was handed off to the configured backend without raising."
+    )
+    fallback_link: str | None = Field(
+        default=None,
+        description="When SMTP isn't configured, the magic link is returned here so the bootstrapping admin can copy it.",
+    )
+
+
 class SessionOut(BaseModel):
     """One row from ``GET /v1/auth/sessions``.
 

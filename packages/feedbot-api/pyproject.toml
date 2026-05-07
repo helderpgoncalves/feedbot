@@ -1,15 +1,12 @@
 [project]
 name = "feedbot-api"
 version = "0.1.0"
-description = "Core API and web dashboard for Feedbot."
+description = "JSON API + MCP server for Feedbot. The dashboard lives in apps/web."
 requires-python = ">=3.11"
 dependencies = [
     "feedbot-core",
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
-    "jinja2>=3.1",
-    "python-multipart>=0.0.9",
-    "itsdangerous>=2.2",
     "httpx>=0.27",
     "slowapi>=0.1.9",
     "mcp>=1.27",

@@ -7,6 +7,16 @@ All notable changes to this project will be documented here. Format follows [Kee
 
 ## [Unreleased]
 
+### Removed
+- **Jinja UI in `feedbot-api` (BREAKING)** — the legacy server-rendered dashboard, team page, members page, invites accept page, login form, LLM settings page, and bootstrap setup wizard have been deleted. The SPA in `apps/web/` has full functional parity and is now the only UI. The API process is a pure JSON server. Concretely removed: `routers/auth.py`, `routers/dashboard.py`, `routers/team.py`, `routers/members.py`, `routers/invites.py`, `routers/llm_settings.py`, `routers/setup.py`, the entire `templates/` and `static/` directories, `templating.py`, the `SessionMiddleware`, and the dependencies `jinja2`, `python-multipart`, `itsdangerous`.
+- **GET /, GET /login, GET /login/verify, GET /setup, GET /dashboard, /team, /members, /invites/{token}** (HTML responses) and the unversioned **POST /login**, **POST /logout**, **POST /setup** form handlers. Use the SPA at `app.<host>` (or whatever `FEEDBOT_PUBLIC_URL` points to) which talks to `/v1/auth/*` and `/v1/setup`.
+- **Bridge `request.session["email"]` cookie** that mirrored auth state into the legacy SessionMiddleware so the Jinja header could render the signed-in chrome. Server-side sessions (`fb_session`) are now the sole identity source.
+
+### Changed
+- **Bootstrap flow moved into `/v1/`** — first-run setup is now `GET /v1/setup-status` + `POST /v1/setup` (JSON), driven by a new SPA page at `/setup`. The `/v1/setup-status` check is cheap, public, and cached for 5 minutes; route guards in `(auth)` and `(authed)` redirect to `/setup` when the users table is empty.
+- **Magic-link emails point at `/magic`** (the SPA route) for new logins. The old `/login/verify` redirect target is gone with the Jinja routes.
+- Cookie / request helpers moved out of `routers/auth.py` into a new router-free `feedbot_api/cookies.py` module — no more circular-import dance, single source of truth for `fb_session` / `mlnonce`. Public function names dropped the leading underscore (`client_ip`, `set_session_cookie`, …); `user_agent` is now `client_user_agent` to avoid colliding with the keyword arg of every audit / sessions call.
+
 ### Added
 - **Outbound notification worker (M4)** — when status flips to `done` or the team queues a `reply_to_user`, the bot delivers the message back to the **same chat** where the feedback was first reported. Conversation stays in one thread; reporters never have to open a DM with the bot.
 - **Conversation loop** — when a user replies in chat to one of the bot's messages, the body is captured as `user_reply`, status flips to `triaged`, and Claude (or a human) sees it on the next read. The MCP `request_more_info` tool now closes the loop end-to-end.

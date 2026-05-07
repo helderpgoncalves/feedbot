@@ -41,7 +41,7 @@ from feedbot_api.deps import (
     require_tenant_admin,
     require_user,
 )
-from feedbot_api.routers.auth import _client_ip, _user_agent
+from feedbot_api.cookies import client_ip, client_user_agent
 from feedbot_api.schemas import (
     ApiKeyCreated,
     ApiKeyIn,
@@ -98,8 +98,8 @@ async def create_project_(
         tenant_id=me.tenant_id,
         user_id=me.id,
         project_id=project.id,
-        ip=_client_ip(request),
-        user_agent=_user_agent(request),
+        ip=client_ip(request),
+        user_agent=client_user_agent(request),
         details={"slug": project.slug, "name": project.name},
     )
     return ProjectOut(slug=project.slug, name=project.name, created_at=project.created_at)
@@ -146,8 +146,8 @@ async def delete_project_(
         tenant_id=me.tenant_id,
         user_id=me.id,
         project_id=project_id,
-        ip=_client_ip(request),
-        user_agent=_user_agent(request),
+        ip=client_ip(request),
+        user_agent=client_user_agent(request),
         details={"slug": project_slug},
     )
 
@@ -203,8 +203,8 @@ async def create_key(
         tenant_id=me.tenant_id,
         user_id=me.id,
         project_id=project.id,
-        ip=_client_ip(request),
-        user_agent=_user_agent(request),
+        ip=client_ip(request),
+        user_agent=client_user_agent(request),
         details={"label": body.label, "scope": body.scope, "prefix": key.prefix},
     )
     out = _to_key_out(key)
@@ -234,8 +234,8 @@ async def revoke_key(
         tenant_id=me.tenant_id,
         user_id=me.id,
         project_id=project.id,
-        ip=_client_ip(request),
-        user_agent=_user_agent(request),
+        ip=client_ip(request),
+        user_agent=client_user_agent(request),
         details={"key_id": key_id},
     )
 
@@ -289,8 +289,8 @@ async def create_chat_link_token(
         tenant_id=me.tenant_id,
         user_id=me.id,
         project_id=project.id,
-        ip=_client_ip(request),
-        user_agent=_user_agent(request),
+        ip=client_ip(request),
+        user_agent=client_user_agent(request),
         details={"has_bot_username": bool(bot_user)},
     )
     return ChatLinkTokenOut(
@@ -323,7 +323,7 @@ async def delete_chat_link(
         tenant_id=me.tenant_id,
         user_id=me.id,
         project_id=project.id,
-        ip=_client_ip(request),
-        user_agent=_user_agent(request),
+        ip=client_ip(request),
+        user_agent=client_user_agent(request),
         details={"chat_link_id": link_id},
     )

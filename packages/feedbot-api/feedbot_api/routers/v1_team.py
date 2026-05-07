@@ -50,10 +50,10 @@ from feedbot_api.deps import (
     require_tenant_admin,
 )
 from feedbot_api.email_backend import email_backend_from_env
-from feedbot_api.routers.auth import (
-    _client_ip,
-    _set_session_cookie,
-    _user_agent,
+from feedbot_api.cookies import (
+    client_ip,
+    set_session_cookie,
+    client_user_agent,
 )
 from feedbot_api.schemas import (
     InviteAcceptIn,
@@ -127,8 +127,8 @@ async def patch_tenant_user(
         event="user.role_changed",
         tenant_id=me.tenant_id,
         user_id=me.id,
-        ip=_client_ip(request),
-        user_agent=_user_agent(request),
+        ip=client_ip(request),
+        user_agent=client_user_agent(request),
         details={"target_user_id": target.id, "from": old_role, "to": str(new_role)},
     )
     return _to_user_out(target)
@@ -168,8 +168,8 @@ async def delete_tenant_user(
         event="user.deleted",
         tenant_id=me.tenant_id,
         user_id=me.id,
-        ip=_client_ip(request),
-        user_agent=_user_agent(request),
+        ip=client_ip(request),
+        user_agent=client_user_agent(request),
         details={"target_user_id": target_id, "target_email": target_email},
     )
 
@@ -202,8 +202,8 @@ async def transfer_ownership(
         event="ownership.transferred",
         tenant_id=me.tenant_id,
         user_id=me.id,
-        ip=_client_ip(request),
-        user_agent=_user_agent(request),
+        ip=client_ip(request),
+        user_agent=client_user_agent(request),
         details={"new_owner_user_id": target.id, "new_owner_email": target.email},
     )
 
@@ -306,8 +306,8 @@ async def create_invite(
         tenant_id=me.tenant_id,
         user_id=me.id,
         project_id=project_id,
-        ip=_client_ip(request),
-        user_agent=_user_agent(request),
+        ip=client_ip(request),
+        user_agent=client_user_agent(request),
         details={"invite_id": invite.id, "email": email, "role": str(role)},
     )
 
@@ -339,8 +339,8 @@ async def delete_invite(
         tenant_id=me.tenant_id,
         user_id=me.id,
         project_id=project_id,
-        ip=_client_ip(request),
-        user_agent=_user_agent(request),
+        ip=client_ip(request),
+        user_agent=client_user_agent(request),
         details={"invite_id": invite_id, "email": invite_email},
     )
 
@@ -407,23 +407,23 @@ async def accept_invite(
     db_session = await auth_sessions.create(
         session,
         user=user,
-        user_agent=_user_agent(request),
-        ip=_client_ip(request),
+        user_agent=client_user_agent(request),
+        ip=client_ip(request),
     )
     await audit.log_event(
         session,
         event="invite.accepted",
         tenant_id=user.tenant_id,
         user_id=user.id,
-        ip=_client_ip(request),
-        user_agent=_user_agent(request),
+        ip=client_ip(request),
+        user_agent=client_user_agent(request),
         details={"session_id_prefix": db_session.id[:8], "channel": "spa"},
     )
 
     from fastapi.responses import Response
 
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
-    _set_session_cookie(response, db_session.id)
+    set_session_cookie(response, db_session.id)
     return response
 
 
@@ -476,8 +476,8 @@ async def add_member(
         tenant_id=me.tenant_id,
         user_id=me.id,
         project_id=project.id,
-        ip=_client_ip(request),
-        user_agent=_user_agent(request),
+        ip=client_ip(request),
+        user_agent=client_user_agent(request),
         details={"target_user_id": target.id, "target_email": target.email},
     )
 
@@ -506,7 +506,7 @@ async def remove_member(
         tenant_id=me.tenant_id,
         user_id=me.id,
         project_id=project.id,
-        ip=_client_ip(request),
-        user_agent=_user_agent(request),
+        ip=client_ip(request),
+        user_agent=client_user_agent(request),
         details={"target_user_id": user_id},
     )
