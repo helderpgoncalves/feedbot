@@ -19,22 +19,27 @@
 
 ## What it does
 
-Drop the bot in your **Telegram** group. Users post bugs, ideas, and feature requests in plain language. Feedbot captures and structures them. Your team triages from a clean **web dashboard**. **Claude Code** picks up tickets via the bundled **MCP server**, ships the fix, and the original reporter is notified back in chat.
+Drop the bot in your **Telegram** group. Users post bugs, ideas, and feature requests in plain language. Feedbot captures and structures them — optionally **auto-triaged by an LLM** (OpenAI or Anthropic, plug-in registry for more). Your team triages from a clean **web dashboard**. **Claude Code** picks up tickets via the bundled **MCP server** (HTTP-native, no proxy process), ships the fix, and the original reporter is notified back **in the same chat** — replies they send route straight to the right ticket.
 
 ```
    ┌──────────────┐                              ┌──────────────────┐
-   │   Telegram   │   bot files structured row   │   Feedbot API    │
+   │   Telegram   │  bot files structured row    │   Feedbot API    │
    │   group      │ ─────────────────────────►   │   (FastAPI +     │
-   │              │ ◄────── DM on resolution ─── │    Postgres)     │
-   └──────────────┘                              └────────┬─────────┘
-                                                          │
-   ┌──────────────┐    Bearer fbk_live_*                  │
-   │  Claude Code │ ◄──────────────────────────────────►  │  ┌─────────────────┐
-   │  + MCP       │                                       │  │  Web Dashboard  │
-   │              │      "Mark FB-A3F2 done"              │  │  (login, team,  │
-   └──────────────┘                                       └► │   projects,     │
-                                                             │   API keys)     │
-                                                             └─────────────────┘
+   │              │ ◄── reply / done in chat ─── │    Postgres)     │
+   └──────────────┘     (same thread, no DM)     └────────┬─────────┘
+                                                          │ LLM classify
+                                                          │ (per project)
+   ┌──────────────┐    Bearer fbk_live_*                  ▼
+   │  Claude Code │ ◄────── HTTP /mcp ──────────►  ┌──────────────┐
+   │  (any model) │                                │ OpenAI /     │
+   │              │      "Mark FB-A3F2 done"       │ Anthropic /  │
+   └──────────────┘                                │  …registry   │
+                                                   └──────────────┘
+                       ┌─────────────────┐
+                       │  Web Dashboard  │
+                       │  team · projects│
+                       │  keys · LLM cfg │
+                       └─────────────────┘
 ```
 
 You stay in your editor. Reporters stay in their chat. Nothing falls through.
@@ -49,10 +54,12 @@ You stay in your editor. Reporters stay in their chat. Nothing falls through.
 | 👥 **Three simple roles** | `owner` / `admin` / `member`. Members only see projects they were explicitly added to. Designed to be obvious, not powerful. |
 | 🤝 **One bot, N projects** | A single Telegram bot serves every project. Each chat is bound to exactly one project; routing is decided server-side from `chat_id`. |
 | ✨ **Frictionless onboarding** | Click *"Connect Telegram"* in the dashboard → pick a group → tap *Start*. The bot confirms the link in chat. No tokens to type. |
-| 🧰 **First-class MCP** | Wire your Claude Code workspace to a project with one CLI command. Triage, fix, document, reply to users — all from your editor. |
+| 🧠 **LLM auto-triage** | OpenAI or Anthropic structured outputs fill `type`, `severity`, `summary`, `tags`, `language`, `sentiment` on every inbound message. Per-project config, encrypted keys, monthly budget cap, full cost audit. Plug-in registry for new providers. |
+| 🧰 **MCP over HTTP** | Native MCP at `/mcp` on the API — no proxy process. `claude mcp add --transport http` and you're in. 9 tools including `request_more_info` for in-chat clarification. |
+| 💬 **Conversational loop** | Replies and resolutions come back to the **same chat** the feedback was reported in. When the reporter answers, the message is captured as `user_reply` and the ticket flips back to `triaged` automatically. |
 | 🚀 **Coolify-deployable** | One Docker Compose file, one Postgres, one domain, TLS automatic. Step-by-step in [`docs/DEPLOY-COOLIFY.md`](docs/DEPLOY-COOLIFY.md). |
-| 🔒 **Hardened by default** | Argon2id-hashed API keys, server-side bot tokens with constant-time compare, signed `https-only` session cookies, HSTS, CSP, rate limiting on auth routes, fail-closed on missing SMTP. |
-| 🪞 **Boring tech, on purpose** | FastAPI · SQLAlchemy 2 async · Postgres · Alembic · Jinja + HTMX + Tailwind. ~2000 LOC of source. Easy to read, fork, and contribute to. |
+| 🔒 **Hardened by default** | Argon2id-hashed API keys, server-side bot tokens with constant-time compare, Fernet-encrypted LLM keys at rest, signed `https-only` session cookies, HSTS, CSP, rate limiting on auth routes, fail-closed on missing SMTP. |
+| 🪞 **Boring tech, on purpose** | FastAPI · SQLAlchemy 2 async · Postgres · Alembic · Jinja + HTMX + Tailwind. Easy to read, fork, and contribute to. |
 
 ---
 
@@ -181,7 +188,7 @@ feedbot/
 │   ├── feedbot-api/    # FastAPI + Jinja+HTMX dashboard, auth, /setup, /team
 │   ├── feedbot-bot/    # Telegram adapter (one bot, many projects)
 │   └── feedbot-mcp/    # MCP stdio server — thin HTTP client for Claude Code
-├── alembic/            # Single shared schema, three migrations
+├── alembic/            # Single shared schema, five migrations (incl. LLM + delivery tracking)
 ├── docker-compose.yml  # db + api + (opt-in) bot
 ├── scripts/seed.py     # CLI: bootstrap owner / project / API key
 └── docs/
@@ -193,24 +200,72 @@ feedbot/
 
 | Package | Role | Runs where |
 |---|---|---|
-| `feedbot-core` | Domain primitives — models, repos, ID generation, Argon2 hashing. **No FastAPI, no Telegram.** | Imported by api/bot |
-| `feedbot-api` | REST API (`/v1/*`), magic-link auth, web dashboard. **Source of truth.** | Server |
-| `feedbot-bot` | Global Telegram bot. Resolves project from `chat_id`. | Server (one process serves N projects) |
-| `feedbot-mcp` | MCP stdio bridge. ~150 LOC. Talks to the API over HTTPS. | Developer's machine |
+| `feedbot-core` | Domain primitives — models, repos, ID generation, Argon2 hashing, **LLM provider registry + classification + Fernet crypto + pricing table**. **No FastAPI, no Telegram.** | Imported by api/bot |
+| `feedbot-api` | REST API (`/v1/*`), magic-link auth, web dashboard, **MCP server at `/mcp`**, LLM settings UI, outbound queue endpoints. **Source of truth.** | Server |
+| `feedbot-bot` | Global Telegram bot. Resolves project from `chat_id`. **Polls the outbound queue every 5s** to deliver replies and done-notifications, and routes Telegram-reply messages back to the right feedback. | Server (one process serves N projects) |
+| `feedbot-mcp` | MCP stdio bridge. *Deprecated* — use `/mcp` HTTP. Kept for local-only fallback. | Developer's machine |
+
+---
+
+## 🧠 LLM auto-triage (optional, per project)
+
+Every inbound feedback can be auto-filled with `type`, `severity`, `summary`, `tags`, `language`, and `sentiment` using **OpenAI** or **Anthropic** structured outputs. Configured per project at `/app/projects/<slug>/llm`:
+
+- **Provider dropdown** populated from the registry (`feedbot_core/llm/providers/`). Adding a new provider tomorrow is one file with `@register("name")`; the dropdown picks it up automatically.
+- **API key encrypted** at rest with Fernet (key derived from `FEEDBOT_SECRET_KEY`). Never re-rendered.
+- **Test connection** runs a real classification round-trip and stores the outcome (`last_test_ok` / `last_test_error`).
+- **Cost tracking** — every call writes a row to `llm_calls` (provider, model, tokens, USD cost from `feedbot_core/llm/pricing.py`, latency, status). The settings page shows month-to-date spend and the last 50 calls.
+- **Monthly budget cap** — optional `monthly_budget_usd`. When the running total hits the cap, classification stops and is audited with `status=over_budget` until the next month. Ingest never fails because of LLM.
+
+Disabled by default. The pipeline degrades gracefully — if no settings exist, classification is skipped (`status=disabled`) and the feedback flows through unchanged.
+
+---
+
+## 💬 Conversational loop (M4)
+
+Replies don't open a DM. They land in the **same chat** the feedback was reported in, prefixed with `[FB-XXXXXX]`:
+
+```
+   user @ Telegram group
+       │ "@bot the export crashes on iOS"
+       ▼
+   feedbot-bot ──ingest──► feedbot-api  (LLM classifies → row)
+                                │
+   team / Claude ──reply_to_user──┘
+                                │  outbound queue
+                                ▼
+   feedbot-bot ──Telegram sendMessage──► same group
+                                          │  "[FB-A3F2] which iOS version?"
+                                          ▼
+   user replies (Telegram-reply to that message)
+                                │
+                                ▼
+   feedbot-bot ──ingest-reply──► feedbot-api
+                                  ├─ writes user_reply
+                                  └─ status → triaged
+
+   status flips to done ──► bot posts "✅ FB-A3F2 resolved." in the chat
+```
+
+The bot polls `/v1/internal/outbound-pending` every 5 seconds, delivers, and ack's via `/v1/internal/outbound-ack`. The Telegram `message_id` is stored, so when the reporter replies, `/v1/internal/ingest-reply` matches it back to the correct feedback row.
 
 ---
 
 ## 🛠️ The MCP tools
 
+Nine tools, served from `/mcp`. Read-only keys cannot mutate.
+
 | Tool | What Claude does with it |
 |---|---|
-| `list_feedbacks` | *"What's in the new bug pile?"* |
+| `list_feedbacks` | *"What's in the new bug pile?"* — filter by status / type / severity |
 | `get_feedback` | *"Pull up FB-A3F2."* |
+| `search_feedbacks` | *"Have we seen this export crash before?"* — substring on title + body |
 | `update_status` | *"Mark FB-A3F2 done — fixed in PR #91."* |
 | `add_note` | *"Note on FB-B7C1: needs design review."* |
-| `reply_to_user` | *"Ask the reporter of FB-A3F2 for their iOS version."* |
-| `search_feedbacks` | *"Have we seen this export crash before?"* |
-| `get_stats` | *"How's the pipeline?"* |
+| `reply_to_user` | *"Tell the reporter of FB-A3F2 it's fixed in v2.4.0."* — delivered to the same chat |
+| `request_more_info` | *"Ask the reporter for their iOS version."* — replies + resets status to `triaged` |
+| `create_feedback` | Programmatic creation when Claude spots an issue itself |
+| `get_stats` | *"How's the pipeline?"* — counts grouped by status |
 
 ---
 
@@ -218,11 +273,12 @@ feedbot/
 
 - **M1** ✅ — Telegram, dashboard, MCP, multi-project, deep-link onboarding, magic-link auth.
 - **M1.1** ✅ — Roles (owner/admin/member), invites, per-project membership, security hardening, Coolify deploy guide.
-- **M1.5** — `/mcp` streamable-HTTP endpoint on the API (skip the stdio package entirely; use `claude mcp add --transport http`).
+- **M1.5** ✅ — `/mcp` streamable-HTTP endpoint on the API. Stdio bridge deprecated. ([#7](https://github.com/helderpgoncalves/feedbot/pull/7))
+- **M3** ✅ — LLM auto-triage with OpenAI / Anthropic, plug-in provider registry, encrypted keys, per-project monthly budget caps, full cost audit. ([#8](https://github.com/helderpgoncalves/feedbot/pull/8))
+- **M4** ✅ — Outbound delivery worker + conversational loop. Replies and `done` notifications land in the original chat; reporter replies route back as `user_reply`. ([#9](https://github.com/helderpgoncalves/feedbot/pull/9))
 - **M2** — WhatsApp via Baileys sidecar (self-hosted; points at your API).
-- **M3** — LLM classification on inbound messages (type, severity, tags).
-- **M4** — Outbound notification worker — `done` → DM reporter; user reply → `triaged`.
 - **M5** — Multi-tenant hosted WhatsApp (managed sessions).
+- **M6** — Additional LLM providers via the registry (Gemini, Groq, Ollama).
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full design.
 
@@ -239,7 +295,9 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full design.
 - **HTTPS-only cookies** when `FEEDBOT_BASE_URL` is `https://`. HSTS, CSP, X-Frame-Options=DENY, Referrer-Policy.
 - **Rate limiting** on `/login`, `/setup`, `/invites/*`. Sane default elsewhere.
 - **Production fail-safe** — `EMAIL_BACKEND=console` + HTTPS deployment ⇒ `/login` returns 503 instead of silently dropping magic links.
-- **Cross-project isolation** — `UNIQUE(platform, chat_id)`, `tenant_id` filtering, `project_members` join on every member-visible query.
+- **Cross-project isolation** — `UNIQUE(platform, chat_id)`, `tenant_id` filtering, `project_members` join on every member-visible query. Verified end-to-end for the MCP HTTP endpoint: keys for project A cannot see project B's rows.
+- **Encrypted LLM keys** — provider API keys (OpenAI / Anthropic) stored Fernet-encrypted with a key derived from `FEEDBOT_SECRET_KEY` via SHA-256. Never re-rendered in the UI.
+- **LLM cost guardrails** — per-project `monthly_budget_usd`. Once the running total hits the cap, classification stops and is logged with `status=over_budget` until the next calendar month — no surprise bills.
 
 Found a vulnerability? **Don't open a public issue.** [Open a private security advisory →](https://github.com/helderpgoncalves/feedbot/security/advisories/new). Full details in [`SECURITY.md`](SECURITY.md).
 

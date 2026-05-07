@@ -144,6 +144,21 @@ curl -s -X POST http://localhost:8000/mcp/ \
   -d '{"jsonrpc":"2.0","method":"tools/list","id":2}'
 ```
 
+## 7b. (Optional) Enable LLM auto-triage
+
+The pipeline is fine without an LLM — every inbound message just keeps the fields the client sent. Turn it on per project to auto-fill `type`, `severity`, `summary`, `tags`, `language`, `sentiment`.
+
+1. Dashboard → project page → **LLM settings** (admin only).
+2. Pick a provider (`openai` or `anthropic`), pick a model from the hint, paste the API key, set a monthly budget if you want a cap, toggle **Enabled**.
+3. Click **Test connection**. The page reloads with `last_test_ok` (green) or `last_test_error` (red) plus a row in the recent-calls table.
+4. Send a new feedback (curl or via the bot). The row's `type` / `severity` / `tags` should now be populated. Open `LLM settings` again — month-to-date spend ticks up; the call is in the recent-50 table.
+
+> Keys are stored Fernet-encrypted with a key derived from `FEEDBOT_SECRET_KEY`. They are never re-rendered in the UI.
+
+> If `Enabled=false` or settings are missing, ingest still works — classification is skipped and audited as `status=disabled`.
+
+> **Adding a new provider** (Gemini, Groq, Ollama…): drop a file in `packages/feedbot-core/feedbot_core/llm/providers/` with a `@register("name")` class that implements `ProviderProtocol`, register it in `providers/__init__.py`, add its pricing to `pricing.py`. The settings UI dropdown picks it up automatically — no UI changes needed.
+
 ## 8. Telegram (one bot, N projects)
 
 The bot is **global** — the same bot process serves every project; routing is server-side via `chat_id → project_members` links.
@@ -183,6 +198,23 @@ docker compose logs -f bot
 ### 8e. Add a second project
 
 Create another project (slug `app2`), generate an invite for it, and add the bot to a **different** group. Mentions in `app2`'s group land in `app2`'s inbox; the demo group keeps landing in `demo`. **Same bot, both groups, isolated projects.**
+
+### 8f. Verify the conversational loop (M4)
+
+With the bot running and a chat connected:
+
+1. Mention the bot in the group: `@your_bot the export crashes on iOS`. The bot acknowledges with `FB-XXXXXX`.
+2. From your editor, ask Claude (via MCP) — *"Reply to FB-XXXXXX asking for their iOS version."* — or `PATCH /v1/feedbacks/<id>` with `{"reply_to_user": "Which iOS version?"}`.
+3. Within ~5 seconds, the bot posts in the **same group**: `[FB-XXXXXX] Which iOS version?` — and the feedback's `reply_sent_at` populates.
+4. **Telegram-reply** to that bot message with `iOS 17.4`. Within a couple of seconds, the row's `user_reply` field contains your text and `status` flips back to `triaged`.
+5. Mark the feedback `done` (dashboard or MCP `update_status`). The bot posts `✅ FB-XXXXXX resolved.` in the group exactly once (`notified_done_at` guard).
+
+If anything stalls, check the bot logs for `outbound_loop` errors and the `feedbacks` row directly:
+
+```bash
+docker compose exec db psql -U postgres -d feedbot -c \
+  "select id, status, reply_sent_at, notified_done_at, user_reply_at, last_outbound_message_id from feedbacks order by created_at desc limit 5;"
+```
 
 ## 9. Reset
 
