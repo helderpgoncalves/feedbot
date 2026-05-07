@@ -4,7 +4,7 @@ import starlight from '@astrojs/starlight';
 import sitemap from '@astrojs/sitemap';
 import starlightThemeBlack from 'starlight-theme-black';
 
-const SITE = 'https://devfeedbot.dev';
+const SITE = 'https://feedbot.dev';
 
 export default defineConfig({
 	site: SITE,

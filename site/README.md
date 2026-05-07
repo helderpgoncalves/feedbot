@@ -1,4 +1,4 @@
-# Feedbot site (devfeedbot.dev)
+# Feedbot site (feedbot.dev)
 
 Astro Starlight project with the [`starlight-theme-black`](https://github.com/adrian-ub/starlight-theme-black) theme. Marketing landing + full docs.
 
@@ -27,13 +27,13 @@ The sidebar is configured in `astro.config.mjs`.
 ## Deploy on Coolify
 
 1. **New resource** → **Application** → repository: `helderpgoncalves/feedbot`, branch `main`, **Build pack: Dockerfile**, **Base directory: `/site`**, **Dockerfile location: `/site/Dockerfile`**.
-2. **Domain**: `devfeedbot.dev` (and `www.devfeedbot.dev` if desired). Coolify provisions Let's Encrypt automatically.
+2. **Domain**: `feedbot.dev` (and `www.feedbot.dev` if desired). Coolify provisions Let's Encrypt automatically.
 3. **Port**: `80` (Caddy listens on 80; Coolify proxies TLS in front).
 4. Push to `main` → auto-build + deploy.
 
 DNS:
-- `devfeedbot.dev` → A record → Coolify host IP
-- `www.devfeedbot.dev` → CNAME → `devfeedbot.dev`
+- `feedbot.dev` → A record → Coolify host IP
+- `www.feedbot.dev` → CNAME → `feedbot.dev`
 
 ## Other hosts
 

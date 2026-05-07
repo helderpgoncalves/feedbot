@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://devfeedbot.dev/sitemap-index.xml
+Sitemap: https://feedbot.dev/sitemap-index.xml
