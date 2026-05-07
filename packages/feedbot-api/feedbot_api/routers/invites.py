@@ -4,11 +4,17 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from feedbot_core import audit, auth_sessions
 from feedbot_core.repos import get_invite_by_token, redeem_invite
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from feedbot_api.deps import get_session
 from feedbot_api.rate_limit import limiter
+from feedbot_api.routers.auth import (
+    _client_ip,
+    _set_session_cookie,
+    _user_agent,
+)
 from feedbot_api.templating import render
 
 router = APIRouter(tags=["invites"])
@@ -32,5 +38,26 @@ async def invite_accept(request: Request, token: str, session: AsyncSession = De
             {"invite": None, "valid": False, "error": "invalid or expired"},
             status_code=status.HTTP_400_BAD_REQUEST,
         )
+
+    db_session = await auth_sessions.create(
+        session,
+        user=user,
+        user_agent=_user_agent(request),
+        ip=_client_ip(request),
+    )
+    await audit.log_event(
+        session,
+        event="invite.accepted",
+        tenant_id=user.tenant_id,
+        user_id=user.id,
+        ip=_client_ip(request),
+        user_agent=_user_agent(request),
+        details={"session_id_prefix": db_session.id[:8]},
+    )
+
+    # Mirror email for the legacy Jinja chrome (see auth.login_verify).
     request.session["email"] = user.email
-    return RedirectResponse("/app", status_code=status.HTTP_303_SEE_OTHER)
+
+    redirect = RedirectResponse("/app", status_code=status.HTTP_303_SEE_OTHER)
+    _set_session_cookie(redirect, db_session.id)
+    return redirect

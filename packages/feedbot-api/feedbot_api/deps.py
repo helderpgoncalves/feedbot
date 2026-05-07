@@ -8,16 +8,20 @@ from collections.abc import AsyncIterator
 from functools import lru_cache
 
 from fastapi import Depends, Header, HTTPException, Request, status
+from feedbot_core import auth_sessions
 from feedbot_core.db import make_engine, make_sessionmaker
 from feedbot_core.models import ApiKey, Project, Role, User
 from feedbot_core.repos import (
     authenticate_api_key,
     get_project_by_slug,
-    get_user_by_email,
     user_can_access_project,
 )
 from feedbot_core.settings import CoreSettings
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+#: Cookie name carrying the server-side session id. Mirrored in routers/auth.py
+#: deliberately rather than imported, to keep deps.py free of circular imports.
+SESSION_COOKIE = "fb_session"
 
 
 @lru_cache
@@ -85,19 +89,18 @@ async def require_bot_token(authorization: str | None = Header(default=None)) ->
 
 
 async def require_user(request: Request, session: AsyncSession = Depends(get_session)) -> User:
-    """Resolve the logged-in user from the session cookie.
+    """Resolve the logged-in user from the server-side session cookie.
 
-    Raises 401 if not logged in; 401 if the session points at an email we no
-    longer have (e.g. user was deleted while logged in).
+    The cookie ``fb_session`` carries an opaque token; ``auth_sessions.lookup``
+    validates it against the ``sessions`` table and returns the user (bumping
+    ``last_seen_at`` as a side effect). Raises 401 if no cookie, expired,
+    revoked, or the user has been deleted.
     """
-    email = request.session.get("email")
-    if not email:
+    sid = request.cookies.get(SESSION_COOKIE)
+    ctx = await auth_sessions.lookup(session, sid or "")
+    if ctx is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "login required")
-    user = await get_user_by_email(session, email)
-    if not user:
-        request.session.clear()
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "session no longer valid")
-    return user
+    return ctx.user
 
 
 async def require_tenant_admin(user: User = Depends(require_user)) -> User:
