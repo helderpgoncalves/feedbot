@@ -17,3 +17,7 @@ build/
 node_modules/
 secrets/
 !secrets/.gitkeep
+
+# Local planning notes — TODO lists, drafts, session handoffs.
+# Not versioned; live only on the machine of whoever is driving.
+.planning/
