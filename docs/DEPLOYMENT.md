@@ -1,3 +1,8 @@
+---
+title: Generic deployment
+description: Deploy Feedbot on any Linux host with Docker — bring your own Postgres and reverse proxy. Reference for non-Coolify hosts.
+---
+
 # Deployment
 
 ## Self-hosted (Docker)

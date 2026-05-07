@@ -1,3 +1,8 @@
+---
+title: Security policy
+description: How to report vulnerabilities, the security model, and what's hardened by default.
+---
+
 # Security policy
 
 ## Reporting a vulnerability

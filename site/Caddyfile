@@ -1,0 +1,23 @@
+:80 {
+	root * /srv
+	encode gzip zstd
+	file_server
+
+	# Pretty-URL fallback for Astro routes that build to nested index.html files.
+	try_files {path} {path}/ {path}.html /404.html
+
+	# Long-cache fingerprinted assets, no-cache for HTML.
+	@hashed path_regexp \.([0-9a-f]{8,})\.(css|js|woff2|svg|png|jpg|jpeg|webp|avif)$
+	header @hashed Cache-Control "public, max-age=31536000, immutable"
+
+	@html path *.html /
+	header @html Cache-Control "no-cache, must-revalidate"
+
+	# Security headers (Coolify also adds HSTS at the proxy level when TLS is on).
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "interest-cohort=()"
+	}
+}

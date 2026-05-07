@@ -1,0 +1,66 @@
+---
+title: Cloud
+description: Hosted Feedbot at app.devfeedbot.dev. Coming soon. Join the waitlist for early access.
+template: splash
+hero:
+  tagline: The same Feedbot, hosted by us. No Postgres to babysit, no upgrades to schedule. Coming soon.
+  actions:
+    - text: Join the waitlist
+      link: /#waitlist
+      icon: right-arrow
+      variant: primary
+    - text: Self-host instead
+      link: /self-host/
+      icon: external
+      variant: secondary
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+:::caution[Status: in development]
+The cloud depends on milestones M5 (multi-tenant managed bots) and M6 (billing). The waitlist will get early access ahead of public launch — and a launch discount.
+:::
+
+## Why cloud, when self-host is free?
+
+<CardGrid>
+  <Card title="No ops" icon="rocket">
+    Sign up, create projects, connect Telegram, done. We handle Postgres, backups, upgrades, SMTP, TLS, on-call.
+  </Card>
+  <Card title="EU data residency" icon="shield">
+    Hosted in the EU by default. DPAs available. SOC 2 in progress.
+  </Card>
+  <Card title="Same product" icon="approve-check">
+    Cloud is **not** a feature-stripped self-host. Both run the same code; the boundary is operational, not functional.
+  </Card>
+  <Card title="Pay monthly" icon="document">
+    Per-seat or per-feedback pricing (we're still calibrating). Cancel anytime, export your data anytime.
+  </Card>
+</CardGrid>
+
+## Side-by-side
+
+| | Self-host | Cloud |
+|---|---|---|
+| Price | Free, MIT | Paid, monthly |
+| Where it runs | Your infra | Our infra (EU) |
+| Postgres | You manage | Managed by us, daily backups |
+| Upgrades | You pull, you migrate | Done for you |
+| SMTP / email | You configure | Done for you |
+| Telegram bot | You bring (one global token) | Shared, or bring your own |
+| LLM keys | You bring | You bring (same encryption) |
+| SLA | None | Yes, see pricing |
+| Data residency | Wherever | EU-first |
+
+## Roadmap
+
+The cloud follows the public roadmap on [GitHub](https://github.com/helderpgoncalves/feedbot#-roadmap):
+
+- **M5** — Multi-tenant managed bot infrastructure.
+- **M6** — Billing, Stripe webhooks, plan-based quotas, usage dashboards.
+
+Self-host moves first; cloud follows once the multi-tenant story is proven on real installs.
+
+## Get notified
+
+[Join the waitlist →](/#waitlist) — we'll email the day signups open. No marketing, no list-rental.

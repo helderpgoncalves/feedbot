@@ -1,3 +1,8 @@
+---
+title: Contributing
+description: Local setup, conventions, and how to open a PR against Feedbot.
+---
+
 # Contributing to Feedbot
 
 Thanks for being here. Feedbot is intentionally small — under a few hundred lines per package — so reading the code first is the fastest way in.

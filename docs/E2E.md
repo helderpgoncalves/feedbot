@@ -1,3 +1,8 @@
+---
+title: End-to-end test
+description: Walk the whole Feedbot loop locally with Docker — API, dashboard, MCP, LLM auto-triage, Telegram, and the conversational reply loop.
+---
+
 # End-to-end test (Docker)
 
 Walks the whole loop locally — without needing SMTP, Telegram, or Claude Code — and then layers each on top once the basics work.

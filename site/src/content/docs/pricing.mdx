@@ -1,0 +1,60 @@
+---
+title: Pricing
+description: Self-host is free forever (MIT). Cloud pricing TBD — join the waitlist for the launch discount.
+template: splash
+hero:
+  tagline: Two ways to run Feedbot. One is free forever; one is hosted, managed, and coming soon.
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+<CardGrid>
+  <Card title="Self-host — Free forever">
+    **$0**. MIT license. No usage limits, no telemetry. Bring your own Docker host and Postgres.
+
+    ✓ All features — including LLM auto-triage and the conversational loop
+    ✓ Unlimited projects, members, feedbacks
+    ✓ MCP over HTTP for Claude Code
+    ✓ Community support via [GitHub Discussions](https://github.com/helderpgoncalves/feedbot/discussions)
+
+    [Quickstart →](/getting-started/quickstart/)
+  </Card>
+  <Card title="Cloud — Coming soon">
+    **TBD**. Hosted at `app.devfeedbot.dev`. We run it, you use it.
+
+    ✓ Everything in self-host, plus:
+    ✓ Managed Postgres + daily backups
+    ✓ Automated upgrades
+    ✓ Email delivery handled
+    ✓ EU data residency, DPA available
+    ✓ SLA + business-hours support
+
+    [Join the waitlist →](/#waitlist)
+  </Card>
+</CardGrid>
+
+## FAQ
+
+### Will self-host stay free?
+
+Yes — forever, MIT. We don't believe in feature-stripping the OSS to push people to a paid tier. The cloud is **ops-as-a-service**, not a different product.
+
+### What's the cloud going to cost?
+
+We're calibrating. Likely a per-seat tier for small teams and a per-feedback tier for high-volume installs. Waitlist members will see prices ahead of public launch and get a launch discount.
+
+### Can I migrate self-host → cloud (or back)?
+
+Yes. Postgres dump → restore. Same schema both sides. We'll publish a migration guide when cloud goes live.
+
+### What about LLM costs?
+
+Same model both sides: you bring your own OpenAI / Anthropic key, costs are tracked in `llm_calls`, monthly budget caps prevent surprises. The cloud may later offer a managed LLM with usage billed inline, but BYO-key is the default.
+
+### Do you offer support contracts for self-host?
+
+Not at launch. We're focused on shipping the product. Once cloud is live we'll evaluate paid OSS support contracts for teams that prefer to run their own infra.
+
+---
+
+Questions? [Open a discussion](https://github.com/helderpgoncalves/feedbot/discussions) or join the [waitlist](/#waitlist).

@@ -1,3 +1,8 @@
+---
+title: Architecture
+description: How Feedbot is laid out — components, data model, auth paths, and the design decisions behind the monorepo.
+---
+
 # Architecture
 
 Feedbot is a small, multi-tenant, hosted-or-self-hosted feedback pipeline. The core principle: **one HTTP API is the source of truth**; messaging adapters are thin clients, and Claude Code talks to the API directly via MCP-over-HTTP.

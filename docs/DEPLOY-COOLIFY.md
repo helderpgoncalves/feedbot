@@ -1,3 +1,8 @@
+---
+title: Deploy on Coolify
+description: Step-by-step guide to running Feedbot on Coolify with managed Postgres, TLS, and automatic deploys. Twenty minutes end-to-end.
+---
+
 # Deploy Feedbot to Coolify
 
 Step-by-step guide to running Feedbot on a [Coolify](https://coolify.io/) instance with TLS, automatic deploys, and a managed Postgres. Estimated time: **20 minutes**.

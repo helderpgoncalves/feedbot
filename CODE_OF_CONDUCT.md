@@ -1,3 +1,8 @@
+---
+title: Code of conduct
+description: The Contributor Covenant adopted by the Feedbot project.
+---
+
 # Code of Conduct
 
 ## Our pledge
