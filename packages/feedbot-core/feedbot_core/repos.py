@@ -251,6 +251,27 @@ async def issue_api_key(session: AsyncSession, project_id: int, label: str, scop
     return key, full
 
 
+async def list_api_keys(session: AsyncSession, project_id: int) -> list[ApiKey]:
+    """All API keys for a project, newest first. Includes revoked rows so the UI
+    can show the audit trail; callers may filter on ``revoked_at IS NULL``."""
+    rows = await session.execute(
+        select(ApiKey).where(ApiKey.project_id == project_id).order_by(ApiKey.created_at.desc())
+    )
+    return list(rows.scalars())
+
+
+async def revoke_api_key(session: AsyncSession, project_id: int, key_id: int) -> bool:
+    """Soft-revoke a key. Idempotent — returns False if not found or wrong project."""
+    key = await session.get(ApiKey, key_id)
+    if key is None or key.project_id != project_id:
+        return False
+    if key.revoked_at is not None:
+        return False
+    key.revoked_at = datetime.now(UTC)
+    await session.flush()
+    return True
+
+
 async def authenticate_api_key(session: AsyncSession, raw: str) -> ApiKey | None:
     if not raw or not raw.startswith("fbk_"):
         return None

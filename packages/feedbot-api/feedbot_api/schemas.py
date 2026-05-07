@@ -108,3 +108,73 @@ class MeOut(BaseModel):
     is_setup_complete: bool = Field(
         description="False only when the database is empty (i.e. /setup is still active)."
     )
+
+
+# ─── Projects, API keys, chat links ─────────────────────────────────────────
+
+
+class ProjectIn(BaseModel):
+    """Body for ``POST /v1/projects``."""
+
+    slug: str = Field(min_length=1, max_length=64, pattern=r"^[a-z0-9][a-z0-9_-]*$")
+    name: str = Field(min_length=1, max_length=120)
+
+
+class ProjectOut(BaseModel):
+    """Detailed project view — superset of ``ProjectSummary``."""
+
+    slug: str
+    name: str
+    created_at: datetime
+    feedback_count_by_status: dict[str, int] = Field(
+        default_factory=dict,
+        description="Counts grouped by status for the badge in the UI.",
+    )
+
+
+class ApiKeyOut(BaseModel):
+    """List/get view of an API key. The secret is never re-rendered."""
+
+    id: int
+    label: str
+    prefix: str = Field(description="First 12 chars of the key, e.g. 'fbk_live_AbCdEf12'.")
+    scope: str = Field(description="read | write | admin")
+    created_at: datetime
+    last_used_at: datetime | None
+    revoked_at: datetime | None
+
+
+class ApiKeyCreated(ApiKeyOut):
+    """Response from ``POST /v1/projects/{slug}/api-keys``.
+
+    ``key`` is the **only** time the secret is exposed. Store it now or rotate.
+    """
+
+    key: str = Field(description="Full secret (fbk_*); shown once, never re-rendered.")
+
+
+class ApiKeyIn(BaseModel):
+    """Body for ``POST /v1/projects/{slug}/api-keys``."""
+
+    label: str = Field(min_length=1, max_length=120)
+    scope: str = Field(default="write", pattern=r"^(read|write|admin)$")
+
+
+class ChatLinkOut(BaseModel):
+    id: int
+    platform: str
+    chat_id: str
+    title: str | None
+    created_at: datetime
+
+
+class ChatLinkTokenOut(BaseModel):
+    """Response from ``POST /v1/projects/{slug}/chat-link-tokens``.
+
+    ``deep_link`` is empty when ``FEEDBOT_TELEGRAM_BOT_USERNAME`` is unset on
+    the deployment; the SPA hides the "Open Telegram" button in that case.
+    """
+
+    token: str
+    deep_link: str
+    expires_at: datetime
