@@ -8,6 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "gen:api": "openapi-typescript ${FEEDBOT_API_OPENAPI_URL:-http://localhost:8000/openapi.json} -o src/types/api.ts"
   },
   "dependencies": {
@@ -48,17 +50,23 @@
     "@eslint/js": "^10.0.1",
     "@tanstack/router-devtools": "^1.166.13",
     "@tanstack/router-plugin": "^1.167.35",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^24.12.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^4.7.0",
+    "@vitest/ui": "^4.1.5",
     "eslint": "^10.2.1",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.5.0",
+    "jsdom": "^25.0.1",
     "openapi-typescript": "^7.13.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.58.2",
-    "vite": "^6.4.2"
+    "vite": "^6.4.2",
+    "vitest": "^4.1.5"
   }
 }

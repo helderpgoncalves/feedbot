@@ -1,0 +1,24 @@
+/**
+ * Vitest config — separate from vite.config.ts to avoid pulling
+ * the TanStack Router / Tailwind plugins into the test environment.
+ */
+
+import path from 'node:path';
+import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+	plugins: [react()],
+	resolve: {
+		alias: {
+			'@': path.resolve(__dirname, './src'),
+		},
+	},
+	test: {
+		environment: 'jsdom',
+		globals: true,
+		setupFiles: ['./vitest.setup.ts'],
+		include: ['src/**/*.{test,spec}.{ts,tsx}'],
+		css: false,
+	},
+});

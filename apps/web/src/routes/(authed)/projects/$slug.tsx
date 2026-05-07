@@ -104,16 +104,25 @@ function ProjectDetailPage() {
 						</span>
 					</h1>
 				</div>
-				{canDelete && (
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={() => setConfirmDelete(true)}
-					>
-						<Trash2 className="size-4" />
-						{t('common.delete')}
-					</Button>
-				)}
+				<div className="flex gap-2">
+					{canDelete && (
+						<Button asChild variant="outline" size="sm">
+							<Link to="/projects/$slug/llm" params={{ slug: project.data.slug }}>
+								{t('projects.detail.llm')}
+							</Link>
+						</Button>
+					)}
+					{canDelete && (
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() => setConfirmDelete(true)}
+						>
+							<Trash2 className="size-4" />
+							{t('common.delete')}
+						</Button>
+					)}
+				</div>
 			</div>
 
 			<StatusGrid counts={project.data.feedback_count_by_status ?? {}} />

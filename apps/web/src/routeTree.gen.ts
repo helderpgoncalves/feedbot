@@ -18,6 +18,8 @@ import { Route as authMagicRouteImport } from './routes/(auth)/magic'
 import { Route as authLoginRouteImport } from './routes/(auth)/login'
 import { Route as authedProjectsIndexRouteImport } from './routes/(authed)/projects/index'
 import { Route as authedProjectsSlugRouteImport } from './routes/(authed)/projects/$slug'
+import { Route as authInvitesTokenRouteImport } from './routes/(auth)/invites.$token'
+import { Route as authedProjectsSlugLlmRouteImport } from './routes/(authed)/projects/$slug.llm'
 
 const authedRouteRoute = authedRouteRouteImport.update({
   id: '/(authed)',
@@ -62,6 +64,16 @@ const authedProjectsSlugRoute = authedProjectsSlugRouteImport.update({
   path: '/projects/$slug',
   getParentRoute: () => authedRouteRoute,
 } as any)
+const authInvitesTokenRoute = authInvitesTokenRouteImport.update({
+  id: '/invites/$token',
+  path: '/invites/$token',
+  getParentRoute: () => authRouteRoute,
+} as any)
+const authedProjectsSlugLlmRoute = authedProjectsSlugLlmRouteImport.update({
+  id: '/llm',
+  path: '/llm',
+  getParentRoute: () => authedProjectsSlugRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -69,8 +81,10 @@ export interface FileRoutesByFullPath {
   '/magic': typeof authMagicRoute
   '/security': typeof authedSecurityRoute
   '/team': typeof authedTeamRoute
-  '/projects/$slug': typeof authedProjectsSlugRoute
+  '/invites/$token': typeof authInvitesTokenRoute
+  '/projects/$slug': typeof authedProjectsSlugRouteWithChildren
   '/projects/': typeof authedProjectsIndexRoute
+  '/projects/$slug/llm': typeof authedProjectsSlugLlmRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -78,8 +92,10 @@ export interface FileRoutesByTo {
   '/magic': typeof authMagicRoute
   '/security': typeof authedSecurityRoute
   '/team': typeof authedTeamRoute
-  '/projects/$slug': typeof authedProjectsSlugRoute
+  '/invites/$token': typeof authInvitesTokenRoute
+  '/projects/$slug': typeof authedProjectsSlugRouteWithChildren
   '/projects': typeof authedProjectsIndexRoute
+  '/projects/$slug/llm': typeof authedProjectsSlugLlmRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -90,8 +106,10 @@ export interface FileRoutesById {
   '/(auth)/magic': typeof authMagicRoute
   '/(authed)/security': typeof authedSecurityRoute
   '/(authed)/team': typeof authedTeamRoute
-  '/(authed)/projects/$slug': typeof authedProjectsSlugRoute
+  '/(auth)/invites/$token': typeof authInvitesTokenRoute
+  '/(authed)/projects/$slug': typeof authedProjectsSlugRouteWithChildren
   '/(authed)/projects/': typeof authedProjectsIndexRoute
+  '/(authed)/projects/$slug/llm': typeof authedProjectsSlugLlmRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -101,8 +119,10 @@ export interface FileRouteTypes {
     | '/magic'
     | '/security'
     | '/team'
+    | '/invites/$token'
     | '/projects/$slug'
     | '/projects/'
+    | '/projects/$slug/llm'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -110,8 +130,10 @@ export interface FileRouteTypes {
     | '/magic'
     | '/security'
     | '/team'
+    | '/invites/$token'
     | '/projects/$slug'
     | '/projects'
+    | '/projects/$slug/llm'
   id:
     | '__root__'
     | '/'
@@ -121,8 +143,10 @@ export interface FileRouteTypes {
     | '/(auth)/magic'
     | '/(authed)/security'
     | '/(authed)/team'
+    | '/(auth)/invites/$token'
     | '/(authed)/projects/$slug'
     | '/(authed)/projects/'
+    | '/(authed)/projects/$slug/llm'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -196,34 +220,61 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof authedProjectsSlugRouteImport
       parentRoute: typeof authedRouteRoute
     }
+    '/(auth)/invites/$token': {
+      id: '/(auth)/invites/$token'
+      path: '/invites/$token'
+      fullPath: '/invites/$token'
+      preLoaderRoute: typeof authInvitesTokenRouteImport
+      parentRoute: typeof authRouteRoute
+    }
+    '/(authed)/projects/$slug/llm': {
+      id: '/(authed)/projects/$slug/llm'
+      path: '/llm'
+      fullPath: '/projects/$slug/llm'
+      preLoaderRoute: typeof authedProjectsSlugLlmRouteImport
+      parentRoute: typeof authedProjectsSlugRoute
+    }
   }
 }
 
 interface authRouteRouteChildren {
   authLoginRoute: typeof authLoginRoute
   authMagicRoute: typeof authMagicRoute
+  authInvitesTokenRoute: typeof authInvitesTokenRoute
 }
 
 const authRouteRouteChildren: authRouteRouteChildren = {
   authLoginRoute: authLoginRoute,
   authMagicRoute: authMagicRoute,
+  authInvitesTokenRoute: authInvitesTokenRoute,
 }
 
 const authRouteRouteWithChildren = authRouteRoute._addFileChildren(
   authRouteRouteChildren,
 )
 
+interface authedProjectsSlugRouteChildren {
+  authedProjectsSlugLlmRoute: typeof authedProjectsSlugLlmRoute
+}
+
+const authedProjectsSlugRouteChildren: authedProjectsSlugRouteChildren = {
+  authedProjectsSlugLlmRoute: authedProjectsSlugLlmRoute,
+}
+
+const authedProjectsSlugRouteWithChildren =
+  authedProjectsSlugRoute._addFileChildren(authedProjectsSlugRouteChildren)
+
 interface authedRouteRouteChildren {
   authedSecurityRoute: typeof authedSecurityRoute
   authedTeamRoute: typeof authedTeamRoute
-  authedProjectsSlugRoute: typeof authedProjectsSlugRoute
+  authedProjectsSlugRoute: typeof authedProjectsSlugRouteWithChildren
   authedProjectsIndexRoute: typeof authedProjectsIndexRoute
 }
 
 const authedRouteRouteChildren: authedRouteRouteChildren = {
   authedSecurityRoute: authedSecurityRoute,
   authedTeamRoute: authedTeamRoute,
-  authedProjectsSlugRoute: authedProjectsSlugRoute,
+  authedProjectsSlugRoute: authedProjectsSlugRouteWithChildren,
   authedProjectsIndexRoute: authedProjectsIndexRoute,
 }
 
