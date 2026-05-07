@@ -29,12 +29,6 @@ from feedbot_core.repos import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from feedbot_api.deps import get_session, require_user
-from feedbot_api.email_backend import (
-    email_backend_from_env,
-    is_console_backend_unsafe_for_prod,
-)
-from feedbot_api.rate_limit import limiter
 from feedbot_api.cookies import (
     NONCE_BYTES,
     NONCE_COOKIE,
@@ -42,11 +36,17 @@ from feedbot_api.cookies import (
     clear_nonce_cookie,
     clear_session_cookie,
     client_ip,
+    client_user_agent,
     hash_nonce,
     set_nonce_cookie,
     set_session_cookie,
-    client_user_agent,
 )
+from feedbot_api.deps import get_session, require_user
+from feedbot_api.email_backend import (
+    email_backend_from_env,
+    is_console_backend_unsafe_for_prod,
+)
+from feedbot_api.rate_limit import limiter
 from feedbot_api.schemas import (
     LoginIn,
     LoginOut,

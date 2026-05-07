@@ -34,6 +34,7 @@ from feedbot_core.repos import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from feedbot_api.cookies import client_ip, client_user_agent
 from feedbot_api.deps import (
     get_session,
     require_project_access,
@@ -41,7 +42,6 @@ from feedbot_api.deps import (
     require_tenant_admin,
     require_user,
 )
-from feedbot_api.cookies import client_ip, client_user_agent
 from feedbot_api.schemas import (
     ApiKeyCreated,
     ApiKeyIn,

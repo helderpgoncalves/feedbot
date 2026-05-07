@@ -77,7 +77,10 @@ class SetupStatusOut(BaseModel):
     """
 
     required: bool = Field(
-        description="True only while the users table is empty. Once an owner exists, the endpoint flips to false permanently for this DB."
+        description=(
+            "True only while the users table is empty. Once an owner exists "
+            "the endpoint flips to false permanently for this DB."
+        )
     )
 
 
@@ -109,7 +112,10 @@ class SetupOut(BaseModel):
     )
     fallback_link: str | None = Field(
         default=None,
-        description="When SMTP isn't configured, the magic link is returned here so the bootstrapping admin can copy it.",
+        description=(
+            "When SMTP isn't configured, the magic link is returned here "
+            "so the bootstrapping admin can copy it."
+        ),
     )
 
 

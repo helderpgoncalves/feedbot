@@ -43,6 +43,11 @@ from feedbot_core.repos import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from feedbot_api.cookies import (
+    client_ip,
+    client_user_agent,
+    set_session_cookie,
+)
 from feedbot_api.deps import (
     get_session,
     require_owner,
@@ -50,11 +55,6 @@ from feedbot_api.deps import (
     require_tenant_admin,
 )
 from feedbot_api.email_backend import email_backend_from_env
-from feedbot_api.cookies import (
-    client_ip,
-    set_session_cookie,
-    client_user_agent,
-)
 from feedbot_api.schemas import (
     InviteAcceptIn,
     InviteIn,
