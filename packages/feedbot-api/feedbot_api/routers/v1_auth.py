@@ -104,7 +104,10 @@ async def login(
         token_raw = secrets.token_urlsafe(24)
         await issue_magic_link(session, email, token_raw, nonce_hash=nonce_hash)
         base = str(request.base_url).rstrip("/")
-        link = f"{base}/v1/auth/magic?email={email}&token={token_raw}"
+        # Point at the SPA's `/magic` route — it calls GET /v1/auth/magic via
+        # fetch and renders progress / error UI, instead of dropping the user
+        # onto a blank 204.
+        link = f"{base}/magic?email={email}&token={token_raw}"
         with contextlib.suppress(Exception):
             email_backend_from_env().send(
                 to=email,

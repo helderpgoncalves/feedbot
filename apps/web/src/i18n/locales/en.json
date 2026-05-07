@@ -99,7 +99,7 @@
 			"triaged": "Triaged",
 			"in_progress": "In progress",
 			"done": "Done",
-			"wontfix": "Won't fix"
+			"wont_fix": "Won't fix"
 		}
 	},
 	"team": {

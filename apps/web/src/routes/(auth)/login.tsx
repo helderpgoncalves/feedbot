@@ -1,22 +1,132 @@
 /**
- * F3.1 placeholder for the login page; F3.2 replaces this with the real form.
- * Kept intentionally minimal so the route tree compiles end-to-end before the
- * full auth UI lands.
+ * Sign-in page. Posts the email to /v1/auth/login, which (a) sends a
+ * magic-link if the email exists and (b) sets the `mlnonce` httpOnly cookie
+ * for PKCE binding. Response is identical for known/unknown emails to
+ * prevent enumeration; we always show the "check your email" success card.
  */
 
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
+import { z } from 'zod';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+	Form,
+	FormControl,
+	FormField,
+	FormItem,
+	FormLabel,
+	FormMessage,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { api, unwrap } from '@/lib/api';
+
+const schema = z.object({
+	email: z.string().min(3).max(255).email(),
+});
+type FormValues = z.infer<typeof schema>;
 
 export const Route = createFileRoute('/(auth)/login')({
 	validateSearch: (search): { redirect?: string } => ({
 		redirect: typeof search.redirect === 'string' ? search.redirect : undefined,
 	}),
-	component: LoginPlaceholder,
+	component: LoginPage,
 });
 
-function LoginPlaceholder() {
+function LoginPage() {
+	const { t } = useTranslation();
+	const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
+
+	const form = useForm<FormValues>({
+		resolver: zodResolver(schema),
+		mode: 'onTouched',
+		defaultValues: { email: '' },
+	});
+
+	const submit = useMutation({
+		mutationFn: (values: FormValues) =>
+			unwrap(
+				api.POST('/v1/auth/login', {
+					body: { email: values.email },
+				}),
+			),
+		onSuccess: (_data, vars) => setSubmittedEmail(vars.email),
+		onError: () => {
+			// Set the form-level message; global toast also fires from the
+			// query client error handler.
+			form.setError('root', { message: t('common.unknown_error') });
+		},
+	});
+
+	if (submittedEmail) {
+		return (
+			<Card>
+				<CardHeader>
+					<CardTitle>{t('auth.login.sent_title')}</CardTitle>
+					<CardDescription>
+						{t('auth.login.sent_subtitle', { email: submittedEmail })}
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
+					<Button
+						variant="outline"
+						className="w-full"
+						onClick={() => {
+							setSubmittedEmail(null);
+							form.reset();
+						}}
+					>
+						{t('auth.login.resend')}
+					</Button>
+				</CardContent>
+			</Card>
+		);
+	}
+
 	return (
-		<div className="text-sm text-muted-foreground text-center">
-			Login form lands in F3.2.
-		</div>
+		<Card>
+			<CardHeader className="text-center">
+				<CardTitle>{t('auth.login.title')}</CardTitle>
+				<CardDescription>{t('auth.login.subtitle')}</CardDescription>
+			</CardHeader>
+			<CardContent>
+				<Form {...form}>
+					<form
+						onSubmit={form.handleSubmit((v) => submit.mutate(v))}
+						className="space-y-4"
+						noValidate
+					>
+						<FormField
+							control={form.control}
+							name="email"
+							render={({ field }) => (
+								<FormItem>
+									<FormLabel>{t('auth.login.email_label')}</FormLabel>
+									<FormControl>
+										<Input
+											type="email"
+											autoComplete="email"
+											autoFocus
+											placeholder={t('auth.login.email_placeholder')}
+											{...field}
+										/>
+									</FormControl>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
+						<Button type="submit" className="w-full" disabled={submit.isPending}>
+							{submit.isPending
+								? t('auth.login.submitting')
+								: t('auth.login.submit')}
+						</Button>
+					</form>
+				</Form>
+			</CardContent>
+		</Card>
 	);
 }
