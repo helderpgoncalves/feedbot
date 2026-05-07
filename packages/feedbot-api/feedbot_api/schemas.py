@@ -178,3 +178,144 @@ class ChatLinkTokenOut(BaseModel):
     token: str
     deep_link: str
     expires_at: datetime
+
+
+# ─── LLM settings & audit (sensitive — see docstrings) ─────────────────────
+
+
+class LLMSettingsOut(BaseModel):
+    """View of project LLM settings.
+
+    The encrypted API key is **never** included in this response. Whether one
+    is configured is exposed only as the boolean ``has_api_key``. The provider
+    error from the last test call (``last_test_error``) is truncated to 240
+    characters to limit accidental key leakage if the provider echoed it back.
+    """
+
+    provider: str
+    model: str | None
+    enabled: bool
+    monthly_budget_usd: float | None
+    has_api_key: bool = Field(description="True when an encrypted key is stored.")
+    last_test_at: datetime | None
+    last_test_ok: bool | None
+    last_test_error: str | None = Field(
+        description="Truncated provider error from the last /llm-test call."
+    )
+    month_to_date_usd: float = Field(description="Sum of usd_cost for this calendar month.")
+
+
+class LLMSettingsIn(BaseModel):
+    """Body for ``PUT /v1/projects/{slug}/llm-settings``.
+
+    Partial-update semantics:
+      * Omit ``api_key`` to keep the existing encrypted key untouched.
+      * Send a non-empty ``api_key`` string to set / rotate it.
+      * Send an empty string to **clear** the key (must also set
+        ``enabled=false`` since classification cannot run without one).
+    The strict pattern is enforced server-side.
+    """
+
+    provider: str = Field(min_length=1, max_length=32, pattern=r"^(none|[a-z][a-z0-9_-]*)$")
+    model: str | None = Field(default=None, max_length=120)
+    api_key: str | None = Field(default=None, description="Plaintext key; encrypted server-side.")
+    enabled: bool = False
+    monthly_budget_usd: float | None = Field(default=None, ge=0)
+
+
+class LLMTestOut(BaseModel):
+    """Response from ``POST /v1/projects/{slug}/llm-test``."""
+
+    ok: bool
+    status: str = Field(description="ok | refused | error | over_budget | disabled")
+    provider: str | None
+    model: str | None
+    latency_ms: int
+    usd_cost: float
+    error_text: str | None = Field(description="Truncated to 240 chars; never echoes back the key.")
+
+
+class LLMCallOut(BaseModel):
+    """One row from ``GET /v1/projects/{slug}/llm-calls``. Used for the audit table."""
+
+    id: int
+    provider: str
+    model: str
+    purpose: str
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int
+    usd_cost: float
+    latency_ms: int
+    status: str
+    error_text: str | None
+    created_at: datetime
+
+
+class ProvidersOut(BaseModel):
+    """Response from ``GET /v1/llm/providers`` — populated dynamically from the
+    feedbot_core.llm registry. The SPA uses this to render the provider/model
+    dropdowns without hardcoding any names client-side."""
+
+    providers: dict[str, dict[str, object]] = Field(
+        description="Keyed by provider name; each entry has default_model + available_models."
+    )
+
+
+# ─── Invites ───────────────────────────────────────────────────────────────
+
+
+class InviteIn(BaseModel):
+    email: str = Field(min_length=3, max_length=255)
+    role: str = Field(default="member", pattern=r"^(admin|member)$")
+    project_slug: str | None = Field(default=None, max_length=64)
+
+
+class InviteOut(BaseModel):
+    id: int
+    email: str
+    role: str
+    project_slug: str | None
+    created_at: datetime
+    expires_at: datetime
+    used_at: datetime | None
+    invited_by_email: str | None
+
+
+class InvitePreviewOut(BaseModel):
+    """Response from ``GET /v1/invites/preview?token=...`` — no auth required.
+
+    Designed so the SPA's "Accept invite" page can show context (workspace name,
+    email, role) before the user clicks "Accept". Returns 404 for any invalid
+    state; never reveals whether the email exists in another tenant.
+    """
+
+    email: str
+    role: str
+    tenant_name: str
+    project_name: str | None
+    expires_at: datetime
+
+
+class InviteAcceptIn(BaseModel):
+    token: str = Field(min_length=8, max_length=128)
+
+
+# ─── Members & team ────────────────────────────────────────────────────────
+
+
+class TenantUserOut(BaseModel):
+    id: int
+    email: str
+    role: str
+    created_at: datetime
+
+
+class ProjectMemberAddIn(BaseModel):
+    user_id: int
+
+
+class TenantUserPatchIn(BaseModel):
+    """Body for ``PATCH /v1/tenant/users/{id}``. Only ``role`` is mutable."""
+
+    role: str = Field(pattern=r"^(admin|member)$")
