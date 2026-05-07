@@ -30,6 +30,7 @@ from feedbot_api.routers import (
     setup,
     team,
     v1,
+    v1_auth,
 )
 from feedbot_api.security_headers import SecurityHeadersMiddleware
 from feedbot_api.templating import render
@@ -88,6 +89,7 @@ STATIC_DIR = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 app.include_router(v1.router)
+app.include_router(v1_auth.router)
 app.include_router(internal.router)
 app.include_router(setup.router)
 app.include_router(auth.router)

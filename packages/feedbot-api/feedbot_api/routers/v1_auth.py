@@ -1,0 +1,344 @@
+"""JSON auth + identity endpoints for the SPA.
+
+These mirror the cookie-based form flow in ``routers/auth.py`` but speak
+JSON, so the React SPA in ``apps/web`` can drive login without HTML
+templates. Cookies are issued the same way (``fb_session`` + ``mlnonce``)
+so a browser that authenticated via the form is also authenticated for
+``/v1/me``, and vice-versa.
+
+Tag is ``v1.auth`` so the OpenAPI groups them sensibly.
+"""
+
+from __future__ import annotations
+
+import contextlib
+import logging
+import secrets
+from datetime import UTC, datetime
+
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.responses import JSONResponse
+from feedbot_core import audit, auth_sessions
+from feedbot_core.models import Tenant
+from feedbot_core.repos import (
+    consume_magic_link,
+    count_users,
+    get_user_by_email,
+    issue_magic_link,
+    list_projects_for_user,
+)
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from feedbot_api.deps import get_session, require_user
+from feedbot_api.email_backend import (
+    email_backend_from_env,
+    is_console_backend_unsafe_for_prod,
+)
+from feedbot_api.rate_limit import limiter
+from feedbot_api.routers.auth import (
+    NONCE_COOKIE,
+    SESSION_COOKIE,
+    _client_ip,
+    _clear_nonce_cookie,
+    _clear_session_cookie,
+    _hash_nonce,
+    _set_nonce_cookie,
+    _set_session_cookie,
+    _user_agent,
+    NONCE_BYTES,
+)
+from feedbot_api.schemas import (
+    LoginIn,
+    LoginOut,
+    MeOut,
+    ProjectSummary,
+    SessionOut,
+)
+from feedbot_core.models import User
+
+log = logging.getLogger("feedbot.v1.auth")
+
+router = APIRouter(prefix="/v1", tags=["v1.auth"])
+
+
+# ─── Login: email → magic link ─────────────────────────────────────────────
+
+
+@router.post(
+    "/auth/login",
+    response_model=LoginOut,
+    summary="Request a magic-link sign-in email",
+    responses={
+        status.HTTP_503_SERVICE_UNAVAILABLE: {
+            "description": "Email delivery is not configured on this deployment."
+        }
+    },
+)
+@limiter.limit("5/15minutes")
+async def login(
+    request: Request,
+    body: LoginIn,
+    session: AsyncSession = Depends(get_session),
+) -> JSONResponse:
+    """Send a magic-link to ``body.email``.
+
+    Always responds 200 with ``{"sent": true}`` — whether the email is
+    registered or not is intentionally hidden to prevent enumeration.
+
+    On every call (registered or not) the response sets an ``mlnonce``
+    cookie. The link the user clicks must be opened in the same browser
+    or the magic-link verifier will mark the login as ``cross_device``
+    and email a notice.
+    """
+    if is_console_backend_unsafe_for_prod():
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "email delivery not configured",
+        )
+
+    email = body.email.lower().strip()
+    user = await get_user_by_email(session, email)
+
+    nonce_raw = secrets.token_urlsafe(NONCE_BYTES)
+    nonce_hash = _hash_nonce(nonce_raw)
+
+    if user is not None:
+        token_raw = secrets.token_urlsafe(24)
+        await issue_magic_link(session, email, token_raw, nonce_hash=nonce_hash)
+        base = str(request.base_url).rstrip("/")
+        link = f"{base}/v1/auth/magic?email={email}&token={token_raw}"
+        with contextlib.suppress(Exception):
+            email_backend_from_env().send(
+                to=email,
+                subject="Your Feedbot sign-in link",
+                body=(
+                    f"Sign in to Feedbot:\n\n{link}\n\n"
+                    "This link expires in 15 minutes and can be used once.\n"
+                ),
+            )
+
+    response = JSONResponse(LoginOut(sent=True).model_dump())
+    _set_nonce_cookie(response, nonce_raw)
+    return response
+
+
+# ─── Magic-link verification ───────────────────────────────────────────────
+
+
+@router.get(
+    "/auth/magic",
+    summary="Consume a magic-link token and start a session",
+    responses={
+        status.HTTP_204_NO_CONTENT: {"description": "Session created; cookie set."},
+        status.HTTP_400_BAD_REQUEST: {"description": "Invalid or expired link."},
+    },
+)
+@limiter.limit("10/15minutes")
+async def magic(
+    request: Request,
+    email: str,
+    token: str,
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    """Consume a magic-link and issue a server-side session cookie.
+
+    On success, sets the ``fb_session`` cookie and clears ``mlnonce``.
+    The SPA should treat any 2xx response as "logged in" and refetch
+    ``/v1/me`` to load identity.
+    """
+    email = email.lower().strip()
+    user = await get_user_by_email(session, email)
+    if user is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid or expired link")
+
+    ok, bound_nonce_hash = await consume_magic_link(session, email, token)
+    if not ok:
+        await audit.log_event(
+            session,
+            event="login.fail",
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            ip=_client_ip(request),
+            user_agent=_user_agent(request),
+            details={"reason": "invalid_or_expired_link", "channel": "spa"},
+        )
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid or expired link")
+
+    cookie_nonce = request.cookies.get(NONCE_COOKIE)
+    cross_device = (
+        bound_nonce_hash is not None
+        and (not cookie_nonce or _hash_nonce(cookie_nonce) != bound_nonce_hash)
+    )
+
+    db_session = await auth_sessions.create(
+        session,
+        user=user,
+        user_agent=_user_agent(request),
+        ip=_client_ip(request),
+    )
+    await audit.log_event(
+        session,
+        event=("login.cross_device" if cross_device else "login.ok"),
+        tenant_id=user.tenant_id,
+        user_id=user.id,
+        ip=_client_ip(request),
+        user_agent=_user_agent(request),
+        details={"session_id_prefix": db_session.id[:8], "channel": "spa"},
+    )
+
+    if cross_device:
+        with contextlib.suppress(Exception):
+            email_backend_from_env().send(
+                to=email,
+                subject="New Feedbot sign-in",
+                body=(
+                    "A new sign-in to your Feedbot account just happened from a "
+                    "different browser than the one that requested the magic link.\n\n"
+                    f"  IP:         {_client_ip(request) or 'unknown'}\n"
+                    f"  User-agent: {_user_agent(request) or 'unknown'}\n\n"
+                    "If this was you, no action is needed.\n"
+                    "If not, sign in again and revoke all sessions from /security.\n"
+                ),
+            )
+
+    response = Response(status_code=status.HTTP_204_NO_CONTENT)
+    _set_session_cookie(response, db_session.id)
+    _clear_nonce_cookie(response)
+    return response
+
+
+# ─── Logout ────────────────────────────────────────────────────────────────
+
+
+@router.post(
+    "/auth/logout",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Revoke the current session",
+)
+async def logout(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    """Revoke just the session that authenticated this request and clear the cookie.
+
+    Idempotent — returns 204 even if no cookie was sent.
+    """
+    sid = request.cookies.get(SESSION_COOKIE)
+    if sid:
+        revoked = await auth_sessions.revoke(session, sid)
+        if revoked:
+            await audit.log_event(
+                session,
+                event="session.revoked",
+                ip=_client_ip(request),
+                user_agent=_user_agent(request),
+                details={"reason": "user_logout", "session_id_prefix": sid[:8], "channel": "spa"},
+            )
+    response = Response(status_code=status.HTTP_204_NO_CONTENT)
+    _clear_session_cookie(response)
+    return response
+
+
+@router.post(
+    "/auth/logout-all",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Revoke every session of the current user",
+)
+async def logout_all(
+    request: Request,
+    me: User = Depends(require_user),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    """Revoke every active session of ``me`` (including the one making the request).
+
+    Useful for "Sign out everywhere" on the future Security page.
+    """
+    revoked = await auth_sessions.revoke_all_for_user(session, me.id)
+    await audit.log_event(
+        session,
+        event="session.revoked.bulk",
+        tenant_id=me.tenant_id,
+        user_id=me.id,
+        ip=_client_ip(request),
+        user_agent=_user_agent(request),
+        details={"count": revoked, "channel": "spa"},
+    )
+    response = Response(status_code=status.HTTP_204_NO_CONTENT)
+    _clear_session_cookie(response)
+    return response
+
+
+# ─── Active session listing (for the future Security page) ─────────────────
+
+
+@router.get(
+    "/auth/sessions",
+    response_model=list[SessionOut],
+    summary="List active sessions for the current user",
+)
+async def list_sessions(
+    request: Request,
+    me: User = Depends(require_user),
+    session: AsyncSession = Depends(get_session),
+) -> list[SessionOut]:
+    rows = await auth_sessions.list_active(session, me.id)
+    current_sid = request.cookies.get(SESSION_COOKIE) or ""
+    return [
+        SessionOut(
+            id=row.id,
+            created_at=row.created_at,
+            last_seen_at=row.last_seen_at,
+            expires_at=row.expires_at,
+            user_agent=row.user_agent,
+            ip=row.ip,
+            is_current=(row.id == current_sid),
+        )
+        for row in rows
+    ]
+
+
+# ─── Identity ──────────────────────────────────────────────────────────────
+
+
+@router.get(
+    "/me",
+    response_model=MeOut,
+    summary="Identity + visible projects for the current user",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: {"description": "No active session."},
+    },
+)
+async def me(
+    me: User = Depends(require_user),
+    session: AsyncSession = Depends(get_session),
+) -> MeOut:
+    """Everything the SPA needs at boot: identity, role, tenant, projects.
+
+    A 401 here tells the SPA to redirect the user to the login screen.
+    """
+    projects = await list_projects_for_user(session, me)
+    is_setup_complete = (await count_users(session)) > 0
+    # Fetch tenant explicitly — the lazy `me.tenant` relationship would trigger
+    # an implicit SELECT outside the async greenlet on serialization.
+    tenant = await session.get(Tenant, me.tenant_id)
+    return MeOut(
+        user={
+            "id": me.id,
+            "email": me.email,
+            "role": str(me.role),
+            "tenant_id": me.tenant_id,
+        },
+        tenant={
+            "id": me.tenant_id,
+            "name": tenant.name if tenant else "",
+        },
+        projects=[
+            ProjectSummary(
+                slug=p.slug,
+                name=p.name,
+                created_at=p.created_at,
+            )
+            for p in projects
+        ],
+        is_setup_complete=is_setup_complete,
+    )

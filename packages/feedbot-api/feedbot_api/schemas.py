@@ -42,3 +42,69 @@ class FeedbackPatch(BaseModel):
 class StatsOut(BaseModel):
     by_status: dict[str, int]
     total: int
+
+
+# ─── Auth & identity (consumed by the SPA in apps/web) ─────────────────────
+
+
+class LoginIn(BaseModel):
+    """JSON body for ``POST /v1/auth/login``.
+
+    The SPA POSTs to this with the user's email. Same enumeration-resistant
+    behaviour as the legacy form endpoint: response is identical whether the
+    email exists or not.
+    """
+
+    email: str = Field(min_length=3, max_length=255)
+
+
+class LoginOut(BaseModel):
+    """Response from ``POST /v1/auth/login``.
+
+    The PKCE nonce ships back in the ``mlnonce`` cookie (httpOnly), not in
+    this body — the SPA never sees it directly.
+    """
+
+    sent: bool = Field(description="Always true; whether the email exists is intentionally hidden.")
+
+
+class SessionOut(BaseModel):
+    """One row from ``GET /v1/auth/sessions``.
+
+    ``id`` is the full session token; sensitive — only the owner sees their
+    own sessions, and the field is shown so the user can revoke a specific
+    one from the future Security page.
+    """
+
+    id: str
+    created_at: datetime
+    last_seen_at: datetime
+    expires_at: datetime
+    user_agent: str | None
+    ip: str | None
+    is_current: bool = Field(description="True for the session that authenticated this request.")
+
+
+class ProjectSummary(BaseModel):
+    """Compact view of a project — used in ``/v1/me`` and listings."""
+
+    slug: str
+    name: str
+    created_at: datetime
+
+
+class MeOut(BaseModel):
+    """Response from ``GET /v1/me`` — everything the SPA needs at boot."""
+
+    user: dict[str, object] = Field(
+        description="Identity + role. Keys: id, email, role, tenant_id."
+    )
+    tenant: dict[str, object] = Field(
+        description="Workspace-level info. Keys: id, name."
+    )
+    projects: list[ProjectSummary] = Field(
+        description="Projects this user can see (admins/owners: all; members: their assignments)."
+    )
+    is_setup_complete: bool = Field(
+        description="False only when the database is empty (i.e. /setup is still active)."
+    )
