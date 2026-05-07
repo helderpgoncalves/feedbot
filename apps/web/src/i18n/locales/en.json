@@ -156,6 +156,39 @@
 			"curl_summary": "Smoke-test with curl",
 			"docs_hint": "Need OAuth instead of a Bearer key?",
 			"docs_link": "See Anthropic's remote-MCP auth guide"
+		},
+		"members": {
+			"title": "Members",
+			"description": "Members are tenant users who can see this project. Owners and admins always have access; this list controls visibility for member-role users.",
+			"add": "Add member",
+			"remove": "Remove",
+			"empty": "No project-scoped members yet. Owners and admins always have access.",
+			"col_email": "Email",
+			"col_role": "Role",
+			"add_title": "Add member to this project",
+			"add_description": "Pick a tenant user. Only member-role users need explicit project access — admins and owners see every project.",
+			"pick_user": "Pick a user",
+			"no_candidates": "No tenant members are available to add. Invite one from the Team page first.",
+			"remove_title": "Remove this member?",
+			"remove_body": "\"{{email}}\" will lose access to this project immediately. They keep their tenant account and any other project memberships."
+		},
+		"chat_links": {
+			"title": "Telegram chats",
+			"description": "Connect Telegram groups to this project. Generate a 15-minute invite, open the deep link to add the bot, and feedback messages from the group land here.",
+			"generate": "Generate invite",
+			"empty": "No Telegram chats connected yet. Generate an invite above to add the bot to a group.",
+			"col_chat": "Chat",
+			"col_platform": "Platform",
+			"col_added": "Added",
+			"untitled_chat": "Untitled chat",
+			"disconnect": "Disconnect",
+			"token_title": "Invite ready",
+			"token_title_no_bot": "Invite token issued",
+			"token_body": "Click the button to open Telegram and add the bot to a group. The token expires at {{expires}} and works once.",
+			"open_telegram": "Open in Telegram",
+			"no_bot_hint": "FEEDBOT_TELEGRAM_BOT_USERNAME isn't set on this deployment, so we can't render a deep link. Copy the token, then add your bot to a group manually and DM it `/start link_<token>`.",
+			"disconnect_title": "Disconnect this chat?",
+			"disconnect_body": "New messages from \"{{chat}}\" will stop creating feedback. Existing feedback rows are kept."
 		}
 	},
 	"feedbacks": {
@@ -168,6 +201,20 @@
 			"in_progress": "In progress",
 			"done": "Done",
 			"wont_fix": "Won't fix"
+		},
+		"detail": {
+			"reply_label": "Queue a reply to the reporter",
+			"reply_placeholder": "Hi! We just shipped this in v2.4.0…",
+			"reply_queued": "Reply queued — sent on next sync",
+			"queue_reply": "Queue reply",
+			"request_more_info": "Ask for more info",
+			"request_more_info_help": "Sends the message and flips status back to 'triaged' so the loop is visibly open.",
+			"note_label": "Internal note (admin-only)",
+			"note_placeholder": "Needs design review before we close this.",
+			"append_note": "Append note",
+			"existing_notes": "Show existing notes",
+			"user_reply_label": "User replied",
+			"created_at": "Reported {{date}}"
 		}
 	},
 	"team": {

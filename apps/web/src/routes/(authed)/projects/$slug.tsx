@@ -27,8 +27,10 @@ import { queryKeys } from '@/lib/query-keys';
 import { projectSlug } from '@/lib/types';
 import type { components } from '@/types/api';
 import { ApiKeysSection } from './-components/api-keys-section';
+import { ChatLinksSection } from './-components/chat-links-section';
 import { ConnectMcpSection } from './-components/connect-mcp-section';
 import { FeedbackList } from './-components/feedback-list';
+import { MembersSection } from './-components/members-section';
 
 type ApiKeyCreated = components['schemas']['ApiKeyCreated'];
 
@@ -141,6 +143,12 @@ function ProjectDetailPage() {
 
 			{canDelete && (
 				<>
+					<section className="space-y-3">
+						<MembersSection slug={slug} />
+					</section>
+					<section className="space-y-3">
+						<ChatLinksSection slug={slug} />
+					</section>
 					<section className="space-y-3">
 						<ApiKeysSection slug={slug} onKeyCreated={setRevealedKey} />
 					</section>
