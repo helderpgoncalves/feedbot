@@ -1,0 +1,11 @@
+node_modules
+dist
+.vite
+.turbo
+.git
+.vscode
+.DS_Store
+*.log
+.env
+.env.*
+src/routeTree.gen.ts

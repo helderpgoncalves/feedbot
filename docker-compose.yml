@@ -50,5 +50,26 @@ services:
         condition: service_started
     restart: unless-stopped
 
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    environment:
+      # Caddy proxies /api/* /mcp/* /login /setup to this upstream — same origin from the browser.
+      FEEDBOT_API_UPSTREAM: http://api:8000
+      # Runtime config rendered into /config.json on every request. Edit and restart, no rebuild.
+      FEEDBOT_PRODUCT_NAME: ${FEEDBOT_PRODUCT_NAME:-Feedbot}
+      FEEDBOT_PUBLIC_URL: ${FEEDBOT_PUBLIC_URL:-http://localhost:3000}
+      FEEDBOT_TELEGRAM_BOT_USERNAME: ${FEEDBOT_TELEGRAM_BOT_USERNAME:-}
+      FEEDBOT_ALLOW_SIGNUP: ${FEEDBOT_ALLOW_SIGNUP:-false}
+      FEEDBOT_DEPLOYMENT: ${FEEDBOT_DEPLOYMENT:-self-host}
+      FEEDBOT_BUILD_SHA: ${FEEDBOT_BUILD_SHA:-}
+    ports:
+      - "3000:80"
+    depends_on:
+      api:
+        condition: service_started
+    restart: unless-stopped
+
 volumes:
   db_data:

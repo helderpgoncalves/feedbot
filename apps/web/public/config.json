@@ -1,0 +1,8 @@
+{
+	"productName": "Feedbot",
+	"publicUrl": "http://localhost:3000",
+	"telegramBotUsername": null,
+	"allowSignup": false,
+	"deployment": "self-host",
+	"buildSha": null
+}
