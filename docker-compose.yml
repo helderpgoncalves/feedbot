@@ -60,6 +60,9 @@ services:
       # Runtime config rendered into /config.json on every request. Edit and restart, no rebuild.
       FEEDBOT_PRODUCT_NAME: ${FEEDBOT_PRODUCT_NAME:-Feedbot}
       FEEDBOT_PUBLIC_URL: ${FEEDBOT_PUBLIC_URL:-http://localhost:3000}
+      # Optional override for split-domain deploys (SPA + API on different
+      # hosts). Default empty — the SPA derives ${FEEDBOT_PUBLIC_URL}/mcp/.
+      FEEDBOT_MCP_PUBLIC_URL: ${FEEDBOT_MCP_PUBLIC_URL:-}
       FEEDBOT_TELEGRAM_BOT_USERNAME: ${FEEDBOT_TELEGRAM_BOT_USERNAME:-}
       FEEDBOT_ALLOW_SIGNUP: ${FEEDBOT_ALLOW_SIGNUP:-false}
       FEEDBOT_DEPLOYMENT: ${FEEDBOT_DEPLOYMENT:-self-host}

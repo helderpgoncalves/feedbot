@@ -1,6 +1,7 @@
 {
 	"productName": "Feedbot",
 	"publicUrl": "http://localhost:3000",
+	"mcpPublicUrl": "",
 	"telegramBotUsername": null,
 	"allowSignup": false,
 	"deployment": "self-host",

@@ -1,20 +1,35 @@
 ---
 title: MCP tools
-description: The nine tools Claude Code can call against a Feedbot project via the /mcp endpoint.
+description: The nine tools any MCP-compatible client can call against a Feedbot project via the /mcp endpoint.
 ---
 
 The Feedbot API serves the [Model Context Protocol](https://modelcontextprotocol.io) natively over **Streamable HTTP** at `/mcp`. Auth is the same `fbk_live_*` API key the rest of the platform uses; project-scope is automatic — different keys see different data.
 
-## Wire it up
+Any MCP-compatible client works: Claude Code, Claude Desktop, Cursor, Windsurf, Zed, Continue, custom agents using the MCP SDK, and so on. Below are snippets for the most common configurations.
+
+## The easy way: copy the snippets from the dashboard
+
+Open a project in your Feedbot dashboard, scroll to **Connect via MCP**, and copy the snippet for your client. The dashboard injects:
+
+- The exact public URL of *your* deployment (cloud or self-hosted).
+- The freshly-issued API key (only ever shown once — the same panel walks you through creating one).
+
+Self-hosters with a custom domain get the same flow without any extra setup, as long as `FEEDBOT_PUBLIC_URL` (or `FEEDBOT_MCP_PUBLIC_URL` for split-domain deploys) is set on the web container.
+
+## Wire it up manually
+
+### Claude Code (CLI)
 
 ```bash
-claude mcp add feedbot \
-  --transport http \
-  --header "Authorization: Bearer fbk_live_..." \
-  https://your-feedbot.example.com/mcp/
+claude mcp add --transport http feedbot https://your-feedbot.example.com/mcp/ \
+  --header "Authorization: Bearer fbk_live_..."
 ```
 
-Or commit a project-scoped `.mcp.json`:
+This mirrors Anthropic's [Option 1: Add a remote HTTP server](https://code.claude.com/docs/en/mcp#option-1-add-a-remote-http-server) example. The `feedbot` argument is the local server name — pick anything memorable (e.g. `feedbot-acme` if you wire multiple projects to one Claude Code).
+
+### Claude Code, Cursor, Windsurf, Claude Desktop (JSON)
+
+`.mcp.json` (Claude Code, Cursor, Windsurf) and `claude_desktop_config.json` (Claude Desktop) share the same shape:
 
 ```json
 {
@@ -30,8 +45,27 @@ Or commit a project-scoped `.mcp.json`:
 }
 ```
 
+### Any other MCP client
+
+Any client that supports the Streamable HTTP transport with custom headers can talk to `/mcp`. The three pieces of information a client needs:
+
+| Field          | Value                                              |
+| -------------- | -------------------------------------------------- |
+| URL            | `https://your-feedbot.example.com/mcp/`            |
+| Transport      | Streamable HTTP                                    |
+| Authorization  | `Authorization: Bearer fbk_live_...`               |
+
 :::tip
-Each Claude Code workspace has its own `.mcp.json` with a key for that project. Same MCP server, isolated data — guaranteed by the auth layer.
+Each workspace / agent uses its own API key. Same MCP server, isolated project data — guaranteed by the auth layer. Cross-project access is not possible regardless of which client connects.
+:::
+
+:::note[Self-host: pointing the dashboard at the right URL]
+The web container reads two env vars at startup to render the snippets:
+
+- `FEEDBOT_PUBLIC_URL` — base URL of the dashboard (default: `http://localhost:3000`). When the API and SPA share the same origin (the standard `docker compose` setup), `${FEEDBOT_PUBLIC_URL}/mcp/` is the correct MCP URL automatically.
+- `FEEDBOT_MCP_PUBLIC_URL` — set this only when the API lives on a different domain (e.g. `app.example.com` for the SPA, `api.example.com` for the backend). Should be the **full** URL ending in `/mcp/`.
+
+Both are surfaced via the runtime `/config.json` so the same Docker image works for every deployment without rebuilding.
 :::
 
 ## The tools

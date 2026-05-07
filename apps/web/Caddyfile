@@ -26,6 +26,7 @@
 		respond `{
 			"productName":         "{{ env "FEEDBOT_PRODUCT_NAME" }}",
 			"publicUrl":           "{{ env "FEEDBOT_PUBLIC_URL" }}",
+			"mcpPublicUrl":        "{{ env "FEEDBOT_MCP_PUBLIC_URL" }}",
 			"telegramBotUsername": {{ if env "FEEDBOT_TELEGRAM_BOT_USERNAME" }}"{{ env "FEEDBOT_TELEGRAM_BOT_USERNAME" }}"{{ else }}null{{ end }},
 			"allowSignup":         {{ if eq (env "FEEDBOT_ALLOW_SIGNUP") "true" }}true{{ else }}false{{ end }},
 			"deployment":          "{{ if env "FEEDBOT_DEPLOYMENT" }}{{ env "FEEDBOT_DEPLOYMENT" }}{{ else }}self-host{{ end }}",

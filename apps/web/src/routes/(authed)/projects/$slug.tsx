@@ -26,7 +26,11 @@ import { queryClient } from '@/lib/query-client';
 import { queryKeys } from '@/lib/query-keys';
 import { projectSlug } from '@/lib/types';
 import type { components } from '@/types/api';
+import { ApiKeysSection } from './-components/api-keys-section';
+import { ConnectMcpSection } from './-components/connect-mcp-section';
 import { FeedbackList } from './-components/feedback-list';
+
+type ApiKeyCreated = components['schemas']['ApiKeyCreated'];
 
 type ProjectOut = components['schemas']['ProjectOut'];
 
@@ -53,6 +57,7 @@ function ProjectDetailPage() {
 	const { data: me } = useMe();
 	const navigate = useNavigate();
 	const [confirmDelete, setConfirmDelete] = useState(false);
+	const [revealedKey, setRevealedKey] = useState<ApiKeyCreated | null>(null);
 
 	const project = useQuery({
 		queryKey: queryKeys.projects.detail(slug),
@@ -133,6 +138,20 @@ function ProjectDetailPage() {
 				</h2>
 				<FeedbackList slug={slug} />
 			</section>
+
+			{canDelete && (
+				<>
+					<section className="space-y-3">
+						<ApiKeysSection slug={slug} onKeyCreated={setRevealedKey} />
+					</section>
+					<section className="space-y-3">
+						<ConnectMcpSection
+							slug={slug}
+							revealedSecret={revealedKey?.key ?? null}
+						/>
+					</section>
+				</>
+			)}
 
 			<Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
 				<DialogContent>
