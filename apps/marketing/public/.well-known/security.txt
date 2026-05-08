@@ -1,0 +1,8 @@
+# Feedbot security policy — https://datatracker.ietf.org/doc/html/rfc9116
+# If you've found a vulnerability, please disclose it privately via email.
+# We aim to acknowledge within 48 hours.
+Contact: mailto:[email protected]
+Expires: 2027-01-01T00:00:00Z
+Preferred-Languages: en, pt
+Canonical: https://feedbot.dev/.well-known/security.txt
+Policy: https://github.com/helderpgoncalves/feedbot/security/policy

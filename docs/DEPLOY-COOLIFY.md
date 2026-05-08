@@ -111,18 +111,25 @@ This is the live app: SPA + JSON API + Postgres. Deploys from
 
 **Configure SMTP (post-deploy):**
 
-Cloud mode hides the Settings → Email UI. Set SMTP via Coolify env vars:
+Cloud mode hides the Settings → Email UI. Set SMTP via Coolify env vars
+(example uses [Resend](https://resend.com) — same shape works for
+Postmark, SES, Brevo, Sendgrid, Fastmail SMTP, etc.):
 
 ```env
 EMAIL_BACKEND=smtp
 SMTP_HOST=smtp.resend.com
 SMTP_PORT=587
 SMTP_USER=resend
-SMTP_PASSWORD=<your provider api key>
+SMTP_PASSWORD=re_<your Resend API key>
 [email protected]
 ```
 
 Save → Coolify recreates the api container → magic links work.
+
+> Before this works, the Resend account needs to verify the domain
+> (`feedbot.dev`) by adding 3 DNS records in Cloudflare (MX, SPF, DKIM
+> on the `send.feedbot.dev` subdomain). Resend's UI walks you through
+> this; total setup ~5 minutes.
 
 ---
 
