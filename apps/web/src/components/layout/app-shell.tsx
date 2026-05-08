@@ -6,7 +6,7 @@
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useMutation } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { LogOut, ShieldCheck, Users } from 'lucide-react';
+import { LogOut, Settings, ShieldCheck, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
 	DropdownMenu,
@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { api, unwrap } from '@/lib/api';
 import { isAdmin, useMe } from '@/lib/auth';
+import { getConfig } from '@/lib/config';
 import { queryKeys } from '@/lib/query-keys';
 import { queryClient } from '@/lib/query-client';
 
@@ -92,6 +93,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 									</Link>
 								</DropdownMenuItem>
 							)}
+							{me.user.role === 'owner' &&
+								getConfig().deployment !== 'cloud' && (
+									<DropdownMenuItem asChild>
+										<Link to="/settings" className="cursor-pointer">
+											<Settings className="mr-2 size-4" />
+											{t('nav.settings')}
+										</Link>
+									</DropdownMenuItem>
+								)}
 							<DropdownMenuSeparator />
 							<DropdownMenuItem
 								onClick={() => logout.mutate()}

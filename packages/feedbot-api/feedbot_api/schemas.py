@@ -370,3 +370,73 @@ class TenantUserPatchIn(BaseModel):
     """Body for ``PATCH /v1/tenant/users/{id}``. Only ``role`` is mutable."""
 
     role: str = Field(pattern=r"^(admin|member)$")
+
+
+# ─── Admin / orchestrator (self-host only) ─────────────────────────────────
+
+
+class EmailConfigOut(BaseModel):
+    """Current SMTP config for the dashboard's Settings → Email section.
+
+    The encrypted password is **never** returned. ``has_password`` exposes
+    only whether one is stored. ``configured`` is true when the orchestrator
+    has enough to actually send mail (host + port + sender at minimum).
+    """
+
+    host: str | None
+    port: int | None
+    user: str | None
+    sender: str | None
+    has_password: bool = Field(description="True when an encrypted password is stored.")
+    configured: bool = Field(
+        description="True when the API would route magic links through SMTP."
+    )
+
+
+class EmailConfigIn(BaseModel):
+    """Body for ``POST /v1/admin/email/config``.
+
+    ``password`` is **tri-state** (mirrors the LLM-key pattern):
+
+      * ``None``       — keep the stored password untouched.
+      * ``""``         — clear it (fall back to no-auth SMTP / console).
+      * non-empty str  — set / rotate it.
+
+    The other fields are plain replace semantics: send the value you want
+    to persist (or empty string to clear).
+    """
+
+    host: str | None = Field(default=None, max_length=255)
+    port: int | None = Field(default=None, ge=1, le=65535)
+    user: str | None = Field(default=None, max_length=255)
+    password: str | None = Field(
+        default=None,
+        description="Plaintext; encrypted server-side. Tri-state: None=keep, ''=clear, str=set.",
+    )
+    sender: str | None = Field(default=None, max_length=255)
+
+
+class EmailTestIn(BaseModel):
+    """Body for ``POST /v1/admin/email/test``."""
+
+    to: str = Field(
+        min_length=3,
+        max_length=255,
+        description="Recipient address for the test send. Usually the owner's email.",
+    )
+
+
+class EmailTestOut(BaseModel):
+    """Outcome of ``POST /v1/admin/email/test``.
+
+    Always returns 200 with a structured outcome — even when SMTP rejects
+    the request, so the UI can render the raw provider response. The error
+    string is truncated to 240 chars to limit accidental credential leakage
+    if the SMTP server echoes part of the username.
+    """
+
+    ok: bool
+    error: str | None = Field(
+        default=None,
+        description="Truncated SMTP / connection error if ``ok`` is false.",
+    )

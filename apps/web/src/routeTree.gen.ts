@@ -13,11 +13,13 @@ import { Route as authedRouteRouteImport } from './routes/(authed)/route'
 import { Route as authRouteRouteImport } from './routes/(auth)/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as authedTeamRouteImport } from './routes/(authed)/team'
+import { Route as authedSettingsRouteImport } from './routes/(authed)/settings'
 import { Route as authedSecurityRouteImport } from './routes/(authed)/security'
 import { Route as authSetupRouteImport } from './routes/(auth)/setup'
 import { Route as authMagicRouteImport } from './routes/(auth)/magic'
 import { Route as authLoginRouteImport } from './routes/(auth)/login'
 import { Route as authedProjectsIndexRouteImport } from './routes/(authed)/projects/index'
+import { Route as authedSettingsEmailRouteImport } from './routes/(authed)/settings.email'
 import { Route as authedProjectsSlugRouteImport } from './routes/(authed)/projects/$slug'
 import { Route as authInvitesTokenRouteImport } from './routes/(auth)/invites.$token'
 import { Route as authedProjectsSlugLlmRouteImport } from './routes/(authed)/projects/$slug.llm'
@@ -38,6 +40,11 @@ const IndexRoute = IndexRouteImport.update({
 const authedTeamRoute = authedTeamRouteImport.update({
   id: '/team',
   path: '/team',
+  getParentRoute: () => authedRouteRoute,
+} as any)
+const authedSettingsRoute = authedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => authedRouteRoute,
 } as any)
 const authedSecurityRoute = authedSecurityRouteImport.update({
@@ -65,6 +72,11 @@ const authedProjectsIndexRoute = authedProjectsIndexRouteImport.update({
   path: '/projects/',
   getParentRoute: () => authedRouteRoute,
 } as any)
+const authedSettingsEmailRoute = authedSettingsEmailRouteImport.update({
+  id: '/email',
+  path: '/email',
+  getParentRoute: () => authedSettingsRoute,
+} as any)
 const authedProjectsSlugRoute = authedProjectsSlugRouteImport.update({
   id: '/projects/$slug',
   path: '/projects/$slug',
@@ -87,9 +99,11 @@ export interface FileRoutesByFullPath {
   '/magic': typeof authMagicRoute
   '/setup': typeof authSetupRoute
   '/security': typeof authedSecurityRoute
+  '/settings': typeof authedSettingsRouteWithChildren
   '/team': typeof authedTeamRoute
   '/invites/$token': typeof authInvitesTokenRoute
   '/projects/$slug': typeof authedProjectsSlugRouteWithChildren
+  '/settings/email': typeof authedSettingsEmailRoute
   '/projects/': typeof authedProjectsIndexRoute
   '/projects/$slug/llm': typeof authedProjectsSlugLlmRoute
 }
@@ -99,9 +113,11 @@ export interface FileRoutesByTo {
   '/magic': typeof authMagicRoute
   '/setup': typeof authSetupRoute
   '/security': typeof authedSecurityRoute
+  '/settings': typeof authedSettingsRouteWithChildren
   '/team': typeof authedTeamRoute
   '/invites/$token': typeof authInvitesTokenRoute
   '/projects/$slug': typeof authedProjectsSlugRouteWithChildren
+  '/settings/email': typeof authedSettingsEmailRoute
   '/projects': typeof authedProjectsIndexRoute
   '/projects/$slug/llm': typeof authedProjectsSlugLlmRoute
 }
@@ -114,9 +130,11 @@ export interface FileRoutesById {
   '/(auth)/magic': typeof authMagicRoute
   '/(auth)/setup': typeof authSetupRoute
   '/(authed)/security': typeof authedSecurityRoute
+  '/(authed)/settings': typeof authedSettingsRouteWithChildren
   '/(authed)/team': typeof authedTeamRoute
   '/(auth)/invites/$token': typeof authInvitesTokenRoute
   '/(authed)/projects/$slug': typeof authedProjectsSlugRouteWithChildren
+  '/(authed)/settings/email': typeof authedSettingsEmailRoute
   '/(authed)/projects/': typeof authedProjectsIndexRoute
   '/(authed)/projects/$slug/llm': typeof authedProjectsSlugLlmRoute
 }
@@ -128,9 +146,11 @@ export interface FileRouteTypes {
     | '/magic'
     | '/setup'
     | '/security'
+    | '/settings'
     | '/team'
     | '/invites/$token'
     | '/projects/$slug'
+    | '/settings/email'
     | '/projects/'
     | '/projects/$slug/llm'
   fileRoutesByTo: FileRoutesByTo
@@ -140,9 +160,11 @@ export interface FileRouteTypes {
     | '/magic'
     | '/setup'
     | '/security'
+    | '/settings'
     | '/team'
     | '/invites/$token'
     | '/projects/$slug'
+    | '/settings/email'
     | '/projects'
     | '/projects/$slug/llm'
   id:
@@ -154,9 +176,11 @@ export interface FileRouteTypes {
     | '/(auth)/magic'
     | '/(auth)/setup'
     | '/(authed)/security'
+    | '/(authed)/settings'
     | '/(authed)/team'
     | '/(auth)/invites/$token'
     | '/(authed)/projects/$slug'
+    | '/(authed)/settings/email'
     | '/(authed)/projects/'
     | '/(authed)/projects/$slug/llm'
   fileRoutesById: FileRoutesById
@@ -197,6 +221,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof authedTeamRouteImport
       parentRoute: typeof authedRouteRoute
     }
+    '/(authed)/settings': {
+      id: '/(authed)/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof authedSettingsRouteImport
+      parentRoute: typeof authedRouteRoute
+    }
     '/(authed)/security': {
       id: '/(authed)/security'
       path: '/security'
@@ -231,6 +262,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/projects/'
       preLoaderRoute: typeof authedProjectsIndexRouteImport
       parentRoute: typeof authedRouteRoute
+    }
+    '/(authed)/settings/email': {
+      id: '/(authed)/settings/email'
+      path: '/email'
+      fullPath: '/settings/email'
+      preLoaderRoute: typeof authedSettingsEmailRouteImport
+      parentRoute: typeof authedSettingsRoute
     }
     '/(authed)/projects/$slug': {
       id: '/(authed)/projects/$slug'
@@ -274,6 +312,18 @@ const authRouteRouteWithChildren = authRouteRoute._addFileChildren(
   authRouteRouteChildren,
 )
 
+interface authedSettingsRouteChildren {
+  authedSettingsEmailRoute: typeof authedSettingsEmailRoute
+}
+
+const authedSettingsRouteChildren: authedSettingsRouteChildren = {
+  authedSettingsEmailRoute: authedSettingsEmailRoute,
+}
+
+const authedSettingsRouteWithChildren = authedSettingsRoute._addFileChildren(
+  authedSettingsRouteChildren,
+)
+
 interface authedProjectsSlugRouteChildren {
   authedProjectsSlugLlmRoute: typeof authedProjectsSlugLlmRoute
 }
@@ -287,6 +337,7 @@ const authedProjectsSlugRouteWithChildren =
 
 interface authedRouteRouteChildren {
   authedSecurityRoute: typeof authedSecurityRoute
+  authedSettingsRoute: typeof authedSettingsRouteWithChildren
   authedTeamRoute: typeof authedTeamRoute
   authedProjectsSlugRoute: typeof authedProjectsSlugRouteWithChildren
   authedProjectsIndexRoute: typeof authedProjectsIndexRoute
@@ -294,6 +345,7 @@ interface authedRouteRouteChildren {
 
 const authedRouteRouteChildren: authedRouteRouteChildren = {
   authedSecurityRoute: authedSecurityRoute,
+  authedSettingsRoute: authedSettingsRouteWithChildren,
   authedTeamRoute: authedTeamRoute,
   authedProjectsSlugRoute: authedProjectsSlugRouteWithChildren,
   authedProjectsIndexRoute: authedProjectsIndexRoute,

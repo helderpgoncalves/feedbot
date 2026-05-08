@@ -660,6 +660,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/email/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read SMTP config (owner only). The password is never returned. */
+        get: operations["get_config_v1_admin_email_config_get"];
+        put?: never;
+        /** Update SMTP config + restart api (owner only). */
+        post: operations["post_config_v1_admin_email_config_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/email/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a test email using the stored SMTP creds (owner only).
+         * @description Round-trip a fixed message through the configured SMTP server.
+         *
+         *     Always returns 200 with a structured outcome — UI renders the raw
+         *     error on failure. We never persist the result, only the audit row
+         *     that ``apply_email`` already writes on save; a failed test is the
+         *     operator's debugging signal, not an audit-worthy mutation.
+         */
+        post: operations["post_test_v1_admin_email_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/internal/ingest": {
         parameters: {
             query?: never;
@@ -896,6 +939,91 @@ export interface components {
              * Format: date-time
              */
             expires_at: string;
+        };
+        /**
+         * EmailConfigIn
+         * @description Body for ``POST /v1/admin/email/config``.
+         *
+         *     ``password`` is **tri-state** (mirrors the LLM-key pattern):
+         *
+         *       * ``None``       — keep the stored password untouched.
+         *       * ``""``         — clear it (fall back to no-auth SMTP / console).
+         *       * non-empty str  — set / rotate it.
+         *
+         *     The other fields are plain replace semantics: send the value you want
+         *     to persist (or empty string to clear).
+         */
+        EmailConfigIn: {
+            /** Host */
+            host?: string | null;
+            /** Port */
+            port?: number | null;
+            /** User */
+            user?: string | null;
+            /**
+             * Password
+             * @description Plaintext; encrypted server-side. Tri-state: None=keep, ''=clear, str=set.
+             */
+            password?: string | null;
+            /** Sender */
+            sender?: string | null;
+        };
+        /**
+         * EmailConfigOut
+         * @description Current SMTP config for the dashboard's Settings → Email section.
+         *
+         *     The encrypted password is **never** returned. ``has_password`` exposes
+         *     only whether one is stored. ``configured`` is true when the orchestrator
+         *     has enough to actually send mail (host + port + sender at minimum).
+         */
+        EmailConfigOut: {
+            /** Host */
+            host: string | null;
+            /** Port */
+            port: number | null;
+            /** User */
+            user: string | null;
+            /** Sender */
+            sender: string | null;
+            /**
+             * Has Password
+             * @description True when an encrypted password is stored.
+             */
+            has_password: boolean;
+            /**
+             * Configured
+             * @description True when the API would route magic links through SMTP.
+             */
+            configured: boolean;
+        };
+        /**
+         * EmailTestIn
+         * @description Body for ``POST /v1/admin/email/test``.
+         */
+        EmailTestIn: {
+            /**
+             * To
+             * @description Recipient address for the test send. Usually the owner's email.
+             */
+            to: string;
+        };
+        /**
+         * EmailTestOut
+         * @description Outcome of ``POST /v1/admin/email/test``.
+         *
+         *     Always returns 200 with a structured outcome — even when SMTP rejects
+         *     the request, so the UI can render the raw provider response. The error
+         *     string is truncated to 240 chars to limit accidental credential leakage
+         *     if the SMTP server echoes part of the username.
+         */
+        EmailTestOut: {
+            /** Ok */
+            ok: boolean;
+            /**
+             * Error
+             * @description Truncated SMTP / connection error if ``ok`` is false.
+             */
+            error?: string | null;
         };
         /** FeedbackIn */
         FeedbackIn: {
@@ -1470,7 +1598,7 @@ export interface components {
         SetupStatusOut: {
             /**
              * Required
-             * @description True only while the users table is empty. Once an owner exists, the endpoint flips to false permanently for this DB.
+             * @description True only while the users table is empty. Once an owner exists the endpoint flips to false permanently for this DB.
              */
             required: boolean;
         };
@@ -3007,6 +3135,99 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_config_v1_admin_email_config_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailConfigOut"];
+                };
+            };
+        };
+    };
+    post_config_v1_admin_email_config_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailConfigIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailConfigOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description DB write succeeded but the api restart failed. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    post_test_v1_admin_email_test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailTestIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailTestOut"];
+                };
             };
             /** @description Validation Error */
             422: {

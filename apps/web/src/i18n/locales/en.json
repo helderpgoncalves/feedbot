@@ -24,14 +24,55 @@
 		"optional": "Optional",
 		"actions": "Actions",
 		"signed_in_as": "Signed in as {{email}}",
-		"copy_failed": "Could not copy"
+		"copy_failed": "Could not copy",
+		"save": "Save"
 	},
 	"nav": {
 		"projects": "Projects",
 		"team": "Team",
 		"security": "Security",
+		"settings": "Settings",
 		"sign_in": "Sign in",
 		"sign_out": "Sign out"
+	},
+	"settings": {
+		"title": "Settings",
+		"subtitle": "Configure SMTP, the Telegram bot, your domain, and other deployment-wide options.",
+		"back": "Back to Settings",
+		"status": {
+			"configured": "Configured",
+			"not_configured": "Not configured"
+		},
+		"email": {
+			"title": "Email delivery",
+			"subtitle": "SMTP credentials used for magic-link sign-in and team invitations.",
+			"manage": "Manage",
+			"empty_title": "Email delivery is not configured.",
+			"empty_body": "Magic links and invites will surface as inline copy buttons until you set up SMTP.",
+			"form_title": "SMTP credentials",
+			"form_subtitle": "Saving restarts the API container so the new credentials take effect immediately.",
+			"host": "Host",
+			"port": "Port",
+			"port_help": "Common values: 587 (STARTTLS), 465 (implicit TLS), 25 (plaintext — discouraged).",
+			"user": "Username",
+			"password": "Password",
+			"password_help_keep": "Leave empty to keep the stored password. Type a new one to rotate.",
+			"password_help_set": "Stored encrypted; never displayed once saved.",
+			"sender": "From address",
+			"send_test": "Send test email",
+			"saving": "Saving — restarting API…",
+			"saved_toast": "SMTP saved. The API is restarting.",
+			"save_failed_toast": "Save failed: {{message}}",
+			"disable": "Disable",
+			"disable_title": "Disable SMTP delivery?",
+			"disable_body": "Magic links and invites will fall back to the console backend until you re-enter credentials.",
+			"disable_confirm": "Disable",
+			"test_title": "Send test email",
+			"test_body": "We'll send a one-line message using the currently saved SMTP credentials.",
+			"test_to": "Recipient",
+			"test_ok_toast": "Test email sent. Check the inbox.",
+			"test_failed_toast": "Test failed: {{message}}"
+		}
 	},
 	"auth": {
 		"login": {

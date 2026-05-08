@@ -115,6 +115,20 @@ async def require_owner(user: User = Depends(require_user)) -> User:
     return user
 
 
+async def require_self_host() -> None:
+    """Gate orchestrator routes off on cloud builds.
+
+    The dashboard's Settings sections (SMTP, Telegram bot, domain,
+    autostart, system) only make sense when the operator owns the
+    host. On managed deployments ``FEEDBOT_DEPLOYMENT=cloud`` makes
+    every ``/v1/admin/*`` endpoint return 404 — same shape as a route
+    that doesn't exist, so we don't disclose that the orchestrator is
+    a thing in cloud.
+    """
+    if (os.getenv("FEEDBOT_DEPLOYMENT") or "self-host").lower() == "cloud":
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "not found")
+
+
 async def require_project_access(
     slug: str,
     user: User = Depends(require_user),
