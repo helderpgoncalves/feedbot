@@ -81,39 +81,51 @@ services:
     environment:
       # Coolify magic var: tells the platform proxy this service
       # listens on container port 80. Same convention as the
-      # official Coolify caddy templates (e.g. chibisafe).
+      # official Coolify caddy templates.
       - SERVICE_URL_WEB_80
-    volumes:
-      - type: bind
-        source: ./Caddyfile
-        target: /etc/caddy/Caddyfile
-        content: |
-          :80 {
-            route {
-              @api path /api/* /api
-              handle @api {
-                uri strip_prefix /api
-                reverse_proxy api:8000
-              }
-              @mcp path /mcp /mcp/*
-              handle @mcp {
-                reverse_proxy api:8000
-              }
-              @healthz path /healthz
-              handle @healthz {
-                reverse_proxy api:8000
-              }
-              reverse_proxy spa:80
-            }
-            encode gzip zstd
-            header {
-              X-Content-Type-Options "nosniff"
-              X-Frame-Options "DENY"
-              Referrer-Policy "strict-origin-when-cross-origin"
-              Permissions-Policy "interest-cohort=(), camera=(), microphone=(), geolocation=()"
-              Cross-Origin-Opener-Policy "same-origin"
-            }
+    # Caddyfile is written from the entrypoint instead of a bind
+    # mount or compose-spec config. Bind+content is a Coolify-only
+    # extension that breaks plain `docker compose up`; configs:
+    # works with vanilla compose but not Coolify's raw-compose
+    # path. This entrypoint is the lowest common denominator: it
+    # runs unmodified on Coolify, Dokploy, Docker Compose, Podman,
+    # and k8s — no external file required.
+    entrypoint:
+      - sh
+      - -c
+      - |
+        cat > /etc/caddy/Caddyfile <<'CADDYFILE'
+        {
+          auto_https off
+        }
+        :80 {
+          encode gzip zstd
+          @api path /api/* /api
+          handle @api {
+            uri strip_prefix /api
+            reverse_proxy api:8000
           }
+          @mcp path /mcp /mcp/*
+          handle @mcp {
+            reverse_proxy api:8000
+          }
+          @healthz path /healthz
+          handle @healthz {
+            reverse_proxy api:8000
+          }
+          handle {
+            reverse_proxy spa:80
+          }
+          header {
+            X-Content-Type-Options "nosniff"
+            X-Frame-Options "DENY"
+            Referrer-Policy "strict-origin-when-cross-origin"
+            Permissions-Policy "interest-cohort=(), camera=(), microphone=(), geolocation=()"
+            Cross-Origin-Opener-Policy "same-origin"
+          }
+        }
+        CADDYFILE
+        exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
     depends_on:
       api:
         condition: service_started
