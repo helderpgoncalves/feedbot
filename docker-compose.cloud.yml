@@ -77,55 +77,64 @@ services:
   # familiar avoids confusion when a user looks for a Domain field.
   web:
     <<: *defaults
-    image: caddy:2-alpine
-    environment:
-      # Coolify magic var: tells the platform proxy this service
-      # listens on container port 80. Same convention as the
-      # official Coolify caddy templates.
-      - SERVICE_URL_WEB_80
-    # Caddyfile is written from the entrypoint instead of a bind
-    # mount or compose-spec config. Bind+content is a Coolify-only
-    # extension that breaks plain `docker compose up`; configs:
-    # works with vanilla compose but not Coolify's raw-compose
-    # path. This entrypoint is the lowest common denominator: it
-    # runs unmodified on Coolify, Dokploy, Docker Compose, Podman,
-    # and k8s — no external file required.
-    entrypoint:
+    # nginx:alpine exposes ONLY port 80 — eliminates the multi-port
+    # auto-discovery problem that caddy:2-alpine (80/443/2019) caused
+    # under Coolify Traefik. Single exposed port = unambiguous backend.
+    image: nginx:alpine
+    # nginx config is written from the entrypoint via heredoc — works
+    # on every container platform without bind mounts or compose-spec
+    # configs (both of which Coolify's raw-compose path doesn't fully
+    # support). One artifact, runs anywhere.
+    command:
       - sh
       - -c
       - |
-        cat > /etc/caddy/Caddyfile <<'CADDYFILE'
-        {
-          auto_https off
+        cat > /etc/nginx/conf.d/default.conf <<'NGINX'
+        upstream feedbot_api { server api:8000; }
+        upstream feedbot_spa { server spa:80; }
+
+        server {
+          listen 80 default_server;
+          server_name _;
+
+          gzip on;
+          gzip_types text/plain text/css application/javascript application/json image/svg+xml;
+          gzip_min_length 1024;
+
+          add_header X-Content-Type-Options "nosniff" always;
+          add_header X-Frame-Options "DENY" always;
+          add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+          add_header Permissions-Policy "interest-cohort=(), camera=(), microphone=(), geolocation=()" always;
+          add_header Cross-Origin-Opener-Policy "same-origin" always;
+
+          # /api/* -> api, with /api stripped
+          location /api/ {
+            rewrite ^/api/(.*)$ /$1 break;
+            proxy_pass http://feedbot_api;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+          }
+
+          # /mcp, /mcp/* -> api, path-preserving
+          location /mcp  { proxy_pass http://feedbot_api; }
+          location /mcp/ { proxy_pass http://feedbot_api; proxy_http_version 1.1; proxy_set_header Connection ""; }
+
+          # /healthz -> api
+          location = /healthz { proxy_pass http://feedbot_api; }
+
+          # everything else -> SPA
+          location / {
+            proxy_pass http://feedbot_spa;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+          }
         }
-        :80 {
-          encode gzip zstd
-          @api path /api/* /api
-          handle @api {
-            uri strip_prefix /api
-            reverse_proxy api:8000
-          }
-          @mcp path /mcp /mcp/*
-          handle @mcp {
-            reverse_proxy api:8000
-          }
-          @healthz path /healthz
-          handle @healthz {
-            reverse_proxy api:8000
-          }
-          handle {
-            reverse_proxy spa:80
-          }
-          header {
-            X-Content-Type-Options "nosniff"
-            X-Frame-Options "DENY"
-            Referrer-Policy "strict-origin-when-cross-origin"
-            Permissions-Policy "interest-cohort=(), camera=(), microphone=(), geolocation=()"
-            Cross-Origin-Opener-Policy "same-origin"
-          }
-        }
-        CADDYFILE
-        exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
+        NGINX
+        exec nginx -g 'daemon off;'
     depends_on:
       api:
         condition: service_started
