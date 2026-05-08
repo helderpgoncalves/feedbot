@@ -8,4 +8,8 @@ dist
 *.log
 .env
 .env.*
-src/routeTree.gen.ts
+# Note: src/routeTree.gen.ts is intentionally NOT ignored. The Vite
+# TanStack Router plugin regenerates it during `vite build`, but the
+# preceding `tsc -b` step needs it on disk to type-check. The committed
+# copy is always in sync with the routes — easier than splitting the
+# build into two stages.
