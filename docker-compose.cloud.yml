@@ -63,8 +63,11 @@ x-defaults: &defaults
     options:
       max-size: "10m"
       max-file: "3"
-  networks:
-    - feedbot
+  # No `networks:` block. Coolify (and most managed-compose platforms)
+  # creates an isolated network per stack and joins every service to
+  # it automatically. Defining a custom network here makes containers
+  # multi-homed, and Coolify's Traefik then non-deterministically picks
+  # the wrong IP and 504s. See coollabsio/coolify#4483, #6215.
 
 services:
   # ── Edge: the only public-facing service ─────────────────────────
@@ -222,10 +225,6 @@ services:
     depends_on:
       api:
         condition: service_started
-
-networks:
-  feedbot:
-    name: feedbot_net
 
 volumes:
   db_data:
