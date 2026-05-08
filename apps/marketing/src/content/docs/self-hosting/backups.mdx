@@ -1,0 +1,45 @@
+---
+title: Backups & restore
+description: How to take backups, where they live, and how to restore.
+---
+
+A Feedbot backup is a single `feedbot-<UTC ISO>.tar.gz` containing:
+
+- `db.sql` — `pg_dump -Fc` (Postgres custom format).
+- `.env` — your operator config (mode 0600).
+
+## Take a backup
+
+**From the dashboard:** Settings → Backups → Create backup now.
+Downloadable from the same page.
+
+**From the CLI:**
+
+```bash
+feedbot backup
+# → Backup written: 4.2 MB → /opt/feedbot/backups/feedbot-20260508T142200Z.tar.gz
+```
+
+## Schedule backups
+
+Add a cron entry on your server:
+
+```
+0 3 * * * /usr/local/bin/feedbot backup
+```
+
+## Restore
+
+```bash
+feedbot restore /path/to/feedbot-20260508T142200Z.tar.gz
+```
+
+Triple-confirms, drops + recreates the database, runs `pg_restore`,
+restarts the api. Data prior to the backup is gone.
+
+## Best practice
+
+Keep at least one backup off-site. Coolify can rsync the
+`backups/` directory to S3 / Backblaze B2 with a Scheduled Task; for
+self-hosters,
+[`restic`](https://restic.net/) is a great match for this directory.

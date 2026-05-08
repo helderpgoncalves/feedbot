@@ -146,24 +146,45 @@ The marketing build is pure static HTML so no env vars are required.
 
 ## 4. Application 3 — Install one-liner (`get.feedbot.dev`)
 
-`get.feedbot.dev` serves the contents of `install.sh` as `text/plain` so
-`curl -fsSL https://get.feedbot.dev | sh` works.
-
-The simplest setup is a Coolify Static Site that serves `install.sh` (and a
-small `index.html` redirect).
+`get.feedbot.dev` serves `install.sh` so
+`curl -fsSL https://get.feedbot.dev | sh` works. The simplest setup is a
+Coolify Static Site driven by the `apps/installer-host/` directory which
+copies the canonical `install.sh` from the repo root on every build.
 
 1. **+ New Resource → Application → GitHub App**, same repo, branch `main`.
 2. **Build Pack: Static**.
-3. **Base directory:** `apps/installer-host` (we ship a tiny manifest there).
-4. **Install command:** *(empty)*.
-5. **Build command:** `cp ../../install.sh dist/install.sh && cp index.html dist/index.html`.
+3. **Base directory:** `apps/installer-host`.
+4. **Install command:** *(leave empty — no dependencies)*.
+5. **Build command:** `sh build.sh`.
 6. **Publish directory:** `apps/installer-host/dist`.
 7. **Domain:** `https://get.feedbot.dev`.
-8. Deploy.
+8. **Custom Caddy config** (Coolify → Application → Advanced → Caddyfile):
 
-A user running `curl -fsSL https://get.feedbot.dev | sh` gets piped the
-canonical `install.sh`. A user navigating in a browser gets the redirect to the
-marketing site.
+   ```caddy
+   handle / {
+       rewrite * /install.sh
+       header Content-Type "text/plain; charset=utf-8"
+   }
+   handle /install.sh {
+       header Content-Type "text/plain; charset=utf-8"
+   }
+   handle {
+       try_files {path} {path}/ /index.html
+   }
+   ```
+
+   The first block makes `curl https://get.feedbot.dev | sh` return the
+   installer at `/`. The second handles direct requests to `/install.sh`.
+   The fallback handles `/index.html` (browser visitors).
+
+9. Deploy.
+
+After Coolify finishes:
+
+- `curl -fsSL https://get.feedbot.dev | sh` runs the installer.
+- `curl https://get.feedbot.dev/install.sh` returns the same content.
+- Opening `https://get.feedbot.dev/index.html` in a browser shows a
+  human-friendly explainer.
 
 ---
 

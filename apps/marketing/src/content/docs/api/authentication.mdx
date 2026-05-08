@@ -1,0 +1,29 @@
+---
+title: Authentication
+description: How to authenticate against the Feedbot REST API and the MCP server.
+---
+
+Feedbot's API uses two authentication mechanisms.
+
+## API keys (REST + MCP)
+
+Generate a key from the dashboard: **Project → API keys → Create**.
+Keys are prefixed with `fbk_` and shown **once** at creation — the
+server stores only a hash.
+
+```bash
+curl -H "Authorization: Bearer fbk_live_..." \\
+    https://app.feedbot.dev/api/v1/feedbacks
+```
+
+API keys are scoped to a single project. Scopes:
+
+- `read` — list / get feedback only.
+- `write` — read + create / patch.
+- `admin` — read + write + manage settings (rare; bot uses this).
+
+## Session cookies (dashboard)
+
+The dashboard authenticates users via signed session cookies on the
+`fb_session` cookie. You don't interact with this directly unless
+you're embedding Feedbot's UI elsewhere.

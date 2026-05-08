@@ -1,0 +1,101 @@
+---
+title: Install one-liner
+description: Every flag, env var, and stage of the install.sh script.
+---
+
+The installer is a single POSIX-`sh` script that bootstraps a Feedbot
+deployment from a fresh Linux server or macOS laptop. It's designed
+to be safe to `curl … | less` for review before piping to `sh`.
+
+## Source
+
+The script lives at `install.sh` in the
+[feedbot repo](https://github.com/helderpgoncalves/feedbot/blob/main/install.sh).
+We host the canonical copy at `https://get.feedbot.dev/install.sh`
+which serves the same content.
+
+## Stages
+
+The installer is a deterministic state machine. Each stage either
+runs or fails and triggers a LIFO rollback of every preceding stage.
+
+| Stage | What it does |
+|---|---|
+| 1. Pre-flight | OS / arch / RAM / disk / DNS / NTP checks. No mutations. |
+| 2. Detect existing install | If `/opt/feedbot` or `~/.feedbot` exists, asks: upgrade / reconfigure / reinstall / cancel. |
+| 3. Collect config | Auto-detects mode; asks the workdir + final confirmation. |
+| 4. Ensure Docker | Verifies Docker + compose v2; offers `get.docker.com` install on Linux. |
+| 5. Resolve ports | Mode-aware port resolution. Falls back to `:8080` on conflict. |
+| 6. Pull images | Pulls from GHCR. Tracks images we fetched so rollback is precise. |
+| 7. Create workdir | `mkdir -p` the tree, snapshots pre-existing files. |
+| 8. Write files | Templates `docker-compose.yml`, `.env`, `Caddyfile`, `.install-state`. |
+| 9. Start stack | `docker compose up -d`. |
+| 10. Wait healthy | Polls db / api / web for up to 90s. Bails with logs on failure. |
+| 11. Install CLI | Fetches `bin/feedbot` from the repo into `/usr/local/bin/`. |
+| 12. Final verify | One last `curl /healthz`. |
+| 13. Print summary | URL + next steps. |
+
+## Flags
+
+```
+--yes, -y              Non-interactive: accept all defaults.
+--local                Force local mode (bind 127.0.0.1).
+--server               Force server mode (bind 0.0.0.0).
+--upgrade              Force upgrade path on existing install.
+--reinstall            Force reinstall (DESTROYS DATA; asks confirm).
+--version=vX.Y.Z       Pin image versions (default: latest).
+--workdir=PATH         Override install location.
+--http-port=N          Override port resolution.
+--no-cli               Skip installing 'feedbot' to PATH.
+--dry-run              Print actions, no mutations.
+--verbose, -v          Show every command run.
+--help, -h             Usage.
+```
+
+## Environment variables
+
+```
+FEEDBOT_INSTALL_MODE     local | server
+FEEDBOT_PUBLIC_IP        Override IP detection (server mode).
+FEEDBOT_WORKDIR          Override install location.
+FEEDBOT_HTTP_PORT        Override port.
+FEEDBOT_VERSION          Pin to specific image tag.
+```
+
+## Logging
+
+Every install attempt writes a transcript to:
+
+- Linux (root): `/var/log/feedbot-install-<ts>.log`
+- macOS / non-root Linux: `~/.feedbot/logs/install-<ts>.log`
+
+The log is preserved even after a rollback so you have a transcript
+for support.
+
+## Modes
+
+| | `local` | `server` |
+|---|---|---|
+| Bind | `127.0.0.1` only | `0.0.0.0` |
+| Auto-detect | macOS, no public IP | Linux with public IP matching a local interface |
+| Domain & HTTPS UI | Hidden | Visible |
+| Auto-start default | Off | Off (toggle in Settings) |
+
+The privacy guarantee in `local` mode: the `caddy` container binds
+`127.0.0.1:80:80` explicitly. **No firewall rule, no router setting,
+no NAT misconfiguration can expose this port.** It's physically
+off-network.
+
+## After install
+
+Open the URL printed at the end and:
+
+1. Create the owner account.
+2. Configure SMTP, Telegram, domain in **Settings**.
+3. Use the [`feedbot` CLI](/self-hosting/cli) for lifecycle ops.
+
+## Re-running the installer
+
+`feedbot reconfigure` (or `curl … | sh -s -- --upgrade`) re-runs
+the installer in upgrade mode against an existing install. Data
+is preserved.

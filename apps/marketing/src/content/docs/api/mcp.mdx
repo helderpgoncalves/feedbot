@@ -1,0 +1,57 @@
+---
+title: MCP server
+description: Connect Claude Code, Cursor, Windsurf, or any other MCP-compatible client to your Feedbot deployment.
+---
+
+Every Feedbot install ships a [Model Context
+Protocol](https://modelcontextprotocol.io/) server at `/mcp/`. Drop the
+URL into your MCP client and your AI assistant can read, triage, and
+reply to feedback.
+
+## Endpoint
+
+- **Cloud:** `https://app.feedbot.dev/mcp/`
+- **Self-host:** `https://<your-domain>/mcp/` (or
+  `http://<server-ip>/mcp/` over plain HTTP)
+
+## Configuration
+
+The same config file format works in Claude Code, Claude Desktop,
+Cursor, and Windsurf.
+
+```json
+{
+    "mcpServers": {
+        "feedbot": {
+            "url": "https://app.feedbot.dev/mcp/",
+            "headers": {
+                "Authorization": "Bearer fbk_live_..."
+            }
+        }
+    }
+}
+```
+
+Generate the API key from your project page (Project → API keys →
+Create), pick `read` or `write` scope based on whether you want the
+model to mutate state.
+
+## Available tools
+
+- `list_feedbacks` — list with status / type / severity filters.
+- `get_feedback` — fetch by ID.
+- `create_feedback` — file new feedback.
+- `update_feedback_status` — triage.
+- `add_note` — annotate without changing status.
+- `reply_to_user` — queue a reply that gets delivered through the
+  original platform (Telegram / WhatsApp).
+
+## Use cases
+
+- "**Find the top 5 most-reported bugs from the last 7 days**" — your
+  assistant runs `list_feedbacks(status=new, type=bug)` and groups
+  them.
+- "**Triage everything in `acme/dashboard`**" — bulk sets status,
+  severity, type from message content.
+- "**Reply to FB-A4B7D2 letting them know we shipped a fix**" — drops
+  a tracked reply that goes back to the original chat.

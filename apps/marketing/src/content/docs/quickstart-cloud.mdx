@@ -1,0 +1,71 @@
+---
+title: Quickstart — cloud
+description: Sign up at app.feedbot.dev, create your first project, and start collecting feedback in three minutes.
+---
+
+If you don't want to host anything yourself, the cloud version is
+running at **[app.feedbot.dev](https://app.feedbot.dev)**.
+
+## 1. Sign up
+
+Head to [app.feedbot.dev](https://app.feedbot.dev) and enter your
+email. We'll send a magic link — no password.
+
+The first user to sign up on a fresh deployment becomes the **owner**;
+later signups become regular members.
+
+## 2. Create your first project
+
+In the dashboard, click **+ New project**. Pick a slug (used in API
+keys) and a display name.
+
+## 3. Submit feedback
+
+You have three ways to get feedback into Feedbot:
+
+### Telegram
+
+Open **Project → Telegram chats → Connect chat**. We'll generate a
+deep link that adds our bot to a Telegram group of your choice.
+Every message in that group gets classified and stored.
+
+### REST API
+
+```bash
+curl -X POST https://app.feedbot.dev/api/v1/feedbacks \\
+    -H "Authorization: Bearer fbk_live_..." \\
+    -H "Content-Type: application/json" \\
+    -d '{
+        "title": "Export hangs on iOS",
+        "body": "When I select more than 100 rows...",
+        "type": "bug",
+        "severity": "high"
+    }'
+```
+
+Generate a key in **Project → API keys → Create**.
+
+### MCP
+
+Drop our MCP URL into Claude Code, Cursor, or Windsurf:
+
+```json
+{
+    "mcpServers": {
+        "feedbot": {
+            "url": "https://app.feedbot.dev/mcp/",
+            "headers": {
+                "Authorization": "Bearer fbk_live_..."
+            }
+        }
+    }
+}
+```
+
+Your AI assistant can now read, triage, and reply to feedback.
+
+## Next steps
+
+- [Connect a Telegram chat to a project](/telegram/connecting)
+- [Read the API reference](/api/feedbacks)
+- [Move to self-host](/quickstart-selfhost) when you're ready

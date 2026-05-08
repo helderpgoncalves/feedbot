@@ -1,0 +1,95 @@
+---
+title: Quickstart — self-host
+description: One command to bootstrap Feedbot on a Linux VPS or macOS laptop, with TLS-ready Caddy, Postgres, and the Settings UI.
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+The shortest path to a self-hosted Feedbot:
+
+```bash
+curl -fsSL https://get.feedbot.dev | sh
+```
+
+That one line:
+
+1. Runs **pre-flight checks** (OS, Docker, ports, time sync).
+2. **Auto-detects the install mode** (private if you're on a laptop,
+   public if you're on a VPS with an internet-routable IP).
+3. **Pulls the images** from GHCR (api, web, bot, caddy, postgres).
+4. **Writes** `docker-compose.yml`, `.env`, and a `Caddyfile`.
+5. **Starts the stack** and waits for healthchecks.
+6. **Installs** the `feedbot` CLI to `/usr/local/bin/`.
+7. **Verifies** the dashboard is reachable.
+
+Total time: about 30 seconds on a fast network.
+
+<Aside type="caution" title="Linux + macOS supported">
+Windows is not supported directly. Use WSL2 + Docker Desktop or
+deploy to a Linux VPS.
+</Aside>
+
+## Run it without piping
+
+If you want to read the script before running it (recommended for
+production deploys):
+
+```bash
+curl -fsSL https://get.feedbot.dev > install.sh
+less install.sh        # review
+sh install.sh          # run
+```
+
+## Common flags
+
+The installer accepts a handful of flags. Full list with `sh install.sh --help`.
+
+<Tabs>
+    <TabItem label="Local install">
+        ```bash
+        curl -fsSL https://get.feedbot.dev | sh -s -- --local
+        ```
+        Forces local mode: binds to 127.0.0.1, accessible only from this
+        machine. Useful for laptops and dev boxes.
+    </TabItem>
+    <TabItem label="Server install">
+        ```bash
+        curl -fsSL https://get.feedbot.dev | sh -s -- --server --yes
+        ```
+        Forces server mode: binds to 0.0.0.0, accepts traffic from anywhere.
+        `--yes` skips all prompts (accept defaults).
+    </TabItem>
+    <TabItem label="Pin a version">
+        ```bash
+        curl -fsSL https://get.feedbot.dev | sh -s -- --version=v0.2.0
+        ```
+        Locks the install to a specific image tag. Great for reproducible deploys.
+    </TabItem>
+    <TabItem label="Dry run">
+        ```bash
+        curl -fsSL https://get.feedbot.dev | sh -s -- --dry-run --local --workdir=/tmp/feedbot
+        ```
+        Generates the workdir + config files but doesn't touch Docker.
+        Inspect the result, then re-run for real.
+    </TabItem>
+</Tabs>
+
+## What you get
+
+After install:
+
+- A running stack at `http://<your-IP>` (server mode) or
+  `http://localhost` (local mode).
+- A `feedbot` CLI on your PATH.
+- A `/opt/feedbot/` (or `~/.feedbot/`) directory with everything Feedbot
+  needs.
+- The dashboard's **Settings page** — that's where you set up SMTP,
+  Telegram, your domain, and HTTPS. No `.env` editing required.
+
+## Next steps
+
+- [Set up email delivery](/self-hosting/settings#email-delivery)
+- [Connect a Telegram bot](/self-hosting/settings#telegram-bot)
+- [Add a domain and HTTPS](/self-hosting/settings#domain--https)
+- [Schedule backups](/self-hosting/backups)
+- [Use the CLI for upgrades, restores, and rotations](/self-hosting/cli)

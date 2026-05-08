@@ -1,0 +1,41 @@
+---
+title: Introduction
+description: What Feedbot is, who it's for, and the two ways to run it.
+---
+
+Feedbot is an **open-source feedback platform**. It listens to community
+chats — Telegram today, more platforms later — classifies inbound
+messages with an optional LLM, and exposes the structured backlog
+both as a JSON API and as a [Model Context Protocol](https://modelcontextprotocol.io/)
+server so AI tools can read and triage your queue.
+
+## Who it's for
+
+- **Teams running a product community on Telegram** who want feedback
+  to land in a structured backlog rather than getting lost in chat
+  scrollback.
+- **Builders shipping AI tools** who want their assistants to read the
+  user backlog as a first-class data source via MCP.
+- **Self-host enthusiasts** who don't want to send their users' messages
+  to a SaaS.
+
+## Two ways to run it
+
+| | Cloud | Self-host |
+|---|---|---|
+| **URL** | `app.feedbot.dev` | Your domain |
+| **Setup** | Sign up — done | `curl … \| sh` |
+| **Data** | We host it | You host it |
+| **Settings UI** | Hidden (we configure SMTP/etc) | Visible — you control everything |
+| **Cost** | Free during beta | Free, forever |
+
+Both run **the same Docker images** built from the same source —
+[helderpgoncalves/feedbot](https://github.com/helderpgoncalves/feedbot).
+The only difference is who runs the orchestrator.
+
+## What's next
+
+- [Cloud quickstart](/quickstart-cloud) — sign up at `app.feedbot.dev`.
+- [Self-host quickstart](/quickstart-selfhost) — one command, 30 seconds.
+- [CLI reference](/self-hosting/cli) — every `feedbot` subcommand.
+- [MCP server](/api/mcp) — connect Claude Code / Cursor / Windsurf.

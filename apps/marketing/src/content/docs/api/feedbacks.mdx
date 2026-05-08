@@ -1,0 +1,65 @@
+---
+title: Submitting feedback
+description: Create, list, and update feedback via the REST API.
+---
+
+## Create
+
+```bash
+curl -X POST https://app.feedbot.dev/api/v1/feedbacks \\
+    -H "Authorization: Bearer fbk_live_..." \\
+    -H "Content-Type: application/json" \\
+    -d '{
+        "title": "Export hangs on iOS",
+        "body": "When I select more than 100 rows the page freezes.",
+        "type": "bug",
+        "severity": "high",
+        "author_platform": "web",
+        "author_id": "user_123",
+        "author_name": "Alex"
+    }'
+```
+
+Response:
+
+```json
+{
+    "id": "FB-A4B7D2",
+    "project_slug": "demo",
+    "type": "bug",
+    "severity": "high",
+    "status": "new",
+    "title": "Export hangs on iOS",
+    ...
+}
+```
+
+## List + filter
+
+```bash
+curl -H "Authorization: Bearer fbk_live_..." \\
+    "https://app.feedbot.dev/api/v1/feedbacks?status=new&type=bug&limit=50"
+```
+
+## Update status / add a note
+
+```bash
+curl -X PATCH https://app.feedbot.dev/api/v1/feedbacks/FB-A4B7D2 \\
+    -H "Authorization: Bearer fbk_live_..." \\
+    -H "Content-Type: application/json" \\
+    -d '{"status": "in_progress", "note": "Picked up by Alex"}'
+```
+
+## Stats
+
+```bash
+curl -H "Authorization: Bearer fbk_live_..." \\
+    https://app.feedbot.dev/api/v1/stats
+```
+
+Returns a count by status — useful for dashboards.
+
+The full OpenAPI surface is at
+[https://app.feedbot.dev/api/openapi.json](https://app.feedbot.dev/api/openapi.json)
+and a rendered Swagger UI at
+[https://app.feedbot.dev/api/docs](https://app.feedbot.dev/api/docs).

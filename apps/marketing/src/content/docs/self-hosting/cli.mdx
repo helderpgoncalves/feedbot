@@ -1,0 +1,87 @@
+---
+title: CLI reference
+description: Every feedbot subcommand, what it does, and when to use it instead of the dashboard.
+---
+
+The `feedbot` CLI is installed at `/usr/local/bin/feedbot` (or
+`~/.feedbot/bin/feedbot` on macOS). It reads `.install-state` to find
+your workdir and proxies to `docker compose` underneath.
+
+**Philosophy:** the dashboard handles day-to-day stuff (SMTP,
+Telegram, domain). The CLI is for **lifecycle** (install / upgrade /
+uninstall) and **escape hatches** (logs / exec / doctor) when the UI
+is unreachable.
+
+## Lifecycle
+
+| Command | What it does |
+|---|---|
+| `feedbot status` (or just `feedbot`) | Service health + uptime + version. |
+| `feedbot start` | `docker compose up -d`. |
+| `feedbot stop` | `docker compose down`. |
+| `feedbot restart [service]` | Restart all or one. |
+| `feedbot logs [service] [-f]` | Tail compose logs (default: follow with `--tail=200`). |
+| `feedbot exec <service> <cmd...>` | Shell into a container. |
+
+## Updates
+
+| Command | What it does |
+|---|---|
+| `feedbot upgrade` | Pull latest images and recreate (preserves data). |
+| `feedbot self-update` | Re-run `install.sh --upgrade` to refresh the CLI. |
+| `feedbot version` | Show installed + latest available from GHCR. |
+| `feedbot info` | Platform + Docker + image versions. |
+
+## Diagnostics
+
+| Command | What it does |
+|---|---|
+| `feedbot doctor` | Comprehensive health check: stack, connectivity, disk, configuration, updates. |
+| `feedbot ports` | Show ports in use vs configured. |
+| `feedbot config` | Print `.env` with secrets redacted. |
+| `feedbot workdir` | Print the install workdir. |
+
+## Backups
+
+| Command | What it does |
+|---|---|
+| `feedbot backup [--out=path]` | `pg_dump` + `.env` → `feedbot-<ts>.tar.gz`. |
+| `feedbot list-backups` | List `<workdir>/backups/`. |
+| `feedbot restore <file>` | Restore from a backup (DESTRUCTIVE; triple-confirms). |
+
+The backup format matches the orchestrator's so backups taken
+via the dashboard's **Settings → Backups** page and via this CLI are
+interchangeable.
+
+## Configuration
+
+| Command | What it does |
+|---|---|
+| `feedbot reconfigure` | Re-run install wizard (mode/workdir/port). |
+| `feedbot rotate-secret-key` | New `FEEDBOT_SECRET_KEY` (DESTRUCTIVE — invalidates sessions + LLM keys). |
+| `feedbot rotate-bot-token` | New `FEEDBOT_BOT_TOKEN` (bot↔api shared secret). |
+
+## Uninstall
+
+```bash
+feedbot uninstall
+```
+
+Triple-confirms, then:
+
+1. `docker compose down -v` (removes containers AND volumes — data loss).
+2. `rm -rf <workdir>`.
+3. Removes the CLI binary.
+
+There's no recovery from this. If you want to keep data, run `feedbot
+backup` first and store the tarball somewhere safe.
+
+## Tips
+
+- Pipe `feedbot logs` into `grep` for fast filtering:
+  `feedbot logs api --no-follow | grep ERROR`.
+- `feedbot doctor` exits non-zero on critical issues — useful in
+  monitoring scripts.
+- `feedbot config` redacts any key matching `*_KEY`, `*_TOKEN`,
+  `*_PASSWORD`. Empty values stay visible (so you know "not configured"
+  vs "we hid it").

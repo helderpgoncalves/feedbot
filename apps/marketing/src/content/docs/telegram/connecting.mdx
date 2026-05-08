@@ -1,0 +1,33 @@
+---
+title: Connecting a chat
+description: Add the Feedbot bot to a Telegram group with a single deep link.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Connecting Telegram is a two-step process:
+
+## 1. (Self-host only) Configure the bot once
+
+In the dashboard's **Settings → Telegram bot**, paste your token from
+[@BotFather](https://t.me/BotFather) and the bot username. Hit Test
+to verify the token works. Save.
+
+The cloud version is pre-configured.
+
+## 2. Connect a chat to a project
+
+Open the project page and click **+ Connect chat**. We generate a
+single-use deep link of the form
+`https://t.me/<bot>?startgroup=link_<token>`.
+
+Click the link, pick a Telegram group, the bot joins, the chat
+appears in your **Chats** tab, and every message starts being
+classified.
+
+<Aside type="caution" title="Privacy">
+The bot is **not** present in any chat by default. We only see
+messages in groups where you explicitly added the bot via a deep
+link. To stop, remove the bot from the group or click "Disconnect"
+in the dashboard.
+</Aside>

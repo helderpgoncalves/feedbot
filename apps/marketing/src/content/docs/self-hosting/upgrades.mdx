@@ -1,0 +1,39 @@
+---
+title: Upgrades
+description: How to keep Feedbot up to date — from the dashboard, the CLI, or by re-running the installer.
+---
+
+There are three ways to upgrade. Pick whichever you're closest to:
+
+| From | Command |
+|---|---|
+| The dashboard | Settings → Updates → "Update now" |
+| The CLI | `feedbot upgrade` |
+| The shell | `curl -fsSL https://get.feedbot.dev \| sh -s -- --upgrade` |
+
+All three do the same thing: `docker compose pull` followed by
+`docker compose up -d`. Migrations run on the api container's boot
+(`alembic upgrade head`); your data is preserved.
+
+## Pinning a version
+
+By default, the install + upgrade pipeline uses the `latest` tag.
+For reproducible deploys, pin to a specific version:
+
+```bash
+curl -fsSL https://get.feedbot.dev | sh -s -- --version=v0.2.0
+```
+
+The installed CLI then inherits that pin via `.install-state`.
+
+## Roll back
+
+If an upgrade goes sideways:
+
+```bash
+# Pin to the previous version and re-run the installer.
+curl -fsSL https://get.feedbot.dev | sh -s -- --upgrade --version=v0.1.5
+```
+
+If the database migrated forward, you'll need a backup taken before
+the upgrade — see [Backups & restore](/self-hosting/backups).

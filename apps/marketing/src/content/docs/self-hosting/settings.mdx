@@ -1,0 +1,40 @@
+---
+title: Settings UI
+description: Configure SMTP, Telegram, your domain, autostart, and telemetry — all from the dashboard.
+---
+
+Once Feedbot is running, every operational knob lives in **Settings**
+in the dashboard (accessible at the top-right user menu, owner-only).
+
+## Sections
+
+### Email delivery
+
+Sign up uses magic links by default. Until SMTP is configured, the
+links are printed inline in the UI as a copyable fallback. Configure
+your SMTP provider (Resend, Postmark, SES, Brevo, Sendgrid…) once
+and magic links + invitations get delivered for real.
+
+The orchestrator stores the password Fernet-encrypted; it's never
+returned to the wire.
+
+### Telegram bot
+
+Paste a bot token from `@BotFather` and the username, click Test —
+we call Telegram's `getMe` and show the bot profile. On Save, the
+`bot` compose service starts and begins polling. Per-project chats
+are connected from the project page.
+
+### Domain & HTTPS
+
+Server-mode only. Type a domain + Let's Encrypt contact email; we
+push a fresh Caddy config via the Admin API and start the ACME flow.
+Status polls every 3s until the cert lands.
+
+### System
+
+- **Status:** live `docker compose ps` view + restart buttons.
+- **Updates:** compares your build to GHCR's latest; one-click upgrade.
+- **Backups:** list, create, download.
+- **Auto-start:** toggle systemd / launchd at boot.
+- **Telemetry:** opt-in anonymous counters.
