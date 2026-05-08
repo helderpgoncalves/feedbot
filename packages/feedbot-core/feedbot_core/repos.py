@@ -12,6 +12,7 @@ from feedbot_core.models import (
     Feedback,
     FeedbackStatus,
     FeedbackType,
+    InstanceConfig,
     Invite,
     LLMCall,
     MagicLinkToken,
@@ -673,3 +674,52 @@ async def llm_month_to_date_cost(session: AsyncSession, project_id: int) -> floa
         )
     )
     return float(row.scalar_one() or 0.0)
+
+
+# ─── Instance config (singleton) ───────────────────────────────────────────
+
+
+async def get_instance_config(session: AsyncSession) -> InstanceConfig:
+    """Read the deployment-wide config row.
+
+    Migration ``0007`` inserts the ``id=1`` row at upgrade time, so on a
+    properly-migrated DB this never returns None. We still create-on-miss
+    as a defensive fallback for in-memory test databases that bypass the
+    migration sequence.
+    """
+    row = await session.get(InstanceConfig, 1)
+    if row is None:
+        row = InstanceConfig(id=1)
+        session.add(row)
+        await session.flush()
+    return row
+
+
+async def update_instance_config(
+    session: AsyncSession,
+    *,
+    updated_by: int | None = None,
+    **fields: object,
+) -> InstanceConfig:
+    """Apply a partial update to the singleton config row.
+
+    Pass any subset of column names as kwargs. Unknown column names are
+    ignored (defensive; routers should validate before calling) so a
+    stale field name doesn't blow up. ``updated_at`` and ``updated_by``
+    are managed here, not via ``onupdate`` alone, so the audit trail
+    follows the user that triggered the change.
+
+    Encrypted columns (``smtp_password_encrypted``,
+    ``telegram_bot_token_encrypted``) accept ``bytes`` already produced
+    by ``feedbot_core.llm.crypto.encrypt_key`` — repo intentionally
+    does not handle plaintext to keep encryption boundary explicit.
+    """
+    row = await get_instance_config(session)
+    allowed = {c.name for c in InstanceConfig.__table__.columns} - {"id", "updated_at"}
+    for key, value in fields.items():
+        if key in allowed:
+            setattr(row, key, value)
+    row.updated_by = updated_by
+    row.updated_at = datetime.now(UTC)
+    await session.flush()
+    return row

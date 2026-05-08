@@ -4,6 +4,7 @@ from enum import StrEnum
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Index,
@@ -392,3 +393,66 @@ class LLMCall(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (Index("ix_llm_calls_project_created", "project_id", "created_at"),)
+
+
+class InstanceConfig(Base):
+    """Singleton row holding deployment-wide runtime config.
+
+    Edited from the dashboard's Settings page on self-host deployments.
+    Cloud installations leave the row at all-defaults and never expose
+    the related UI — those knobs are operator-managed via env vars.
+
+    Encrypted columns (``smtp_password_encrypted``,
+    ``telegram_bot_token_encrypted``) hold Fernet ciphertext using the
+    same key derivation as project LLM keys
+    (``feedbot_core/llm/crypto.py``). Rotating ``FEEDBOT_SECRET_KEY``
+    invalidates these along with the LLM keys; owners must re-enter
+    them via the UI.
+
+    The ``CheckConstraint("id = 1")`` makes this a true singleton: the
+    DB rejects any attempt to write a row with a different id, so
+    application code can safely assume ``WHERE id = 1`` returns either
+    the row or nothing.
+    """
+
+    __tablename__ = "instance_config"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    # ── SMTP ─────────────────────────────────────────────────────────
+    smtp_host: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    smtp_port: Mapped[int | None] = mapped_column(nullable=True)
+    smtp_user: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    smtp_password_encrypted: Mapped[bytes | None] = mapped_column(
+        LargeBinary, nullable=True
+    )
+    smtp_from: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    # ── Telegram bot ─────────────────────────────────────────────────
+    telegram_bot_token_encrypted: Mapped[bytes | None] = mapped_column(
+        LargeBinary, nullable=True
+    )
+    telegram_bot_username: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    # ── Domain + HTTPS (server-mode only) ────────────────────────────
+    domain: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    https_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    letsencrypt_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    # ── System ───────────────────────────────────────────────────────
+    autostart_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
+    telemetry_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
+
+    # ── Audit ────────────────────────────────────────────────────────
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+    updated_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+
+    __table_args__ = (CheckConstraint("id = 1", name="ck_instance_config_singleton"),)
