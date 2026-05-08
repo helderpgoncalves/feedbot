@@ -81,18 +81,34 @@ else
     C_RESET="" C_DIM="" C_RED="" C_GREEN="" C_YELLOW="" C_BOLD=""
 fi
 
+# Append a tagged line to the install log (no-op until init_log runs).
+# Wrapped as a function so the call sites stay one line and shellcheck
+# doesn't flag the A && B || C compound (SC2015) on every helper.
+_log() {
+    if [ -n "$LOG_FILE" ]; then
+        printf '%s\n' "$*" >>"$LOG_FILE" 2>/dev/null || :
+    fi
+}
+
 # All output helpers also append to the log file (set up in init_log).
-say() { printf '%s\n' "$*"; [ -n "$LOG_FILE" ] && printf '[say] %s\n' "$*" >>"$LOG_FILE" 2>/dev/null || true; }
-ok()  { printf '  %s✓%s %s\n' "$C_GREEN" "$C_RESET" "$*"; [ -n "$LOG_FILE" ] && printf '[ok ] %s\n' "$*" >>"$LOG_FILE" 2>/dev/null || true; }
-warn(){ printf '  %s⚠%s %s\n' "$C_YELLOW" "$C_RESET" "$*"; [ -n "$LOG_FILE" ] && printf '[warn] %s\n' "$*" >>"$LOG_FILE" 2>/dev/null || true; }
-err() { printf '  %s✗%s %s\n' "$C_RED" "$C_RESET" "$*" >&2; [ -n "$LOG_FILE" ] && printf '[err] %s\n' "$*" >>"$LOG_FILE" 2>/dev/null || true; }
-section() { printf '\n  %s%s%s\n  %s\n' "$C_BOLD" "$1" "$C_RESET" "$(printf '─%.0s' $(seq 1 ${#1}))"; [ -n "$LOG_FILE" ] && printf '\n=== %s ===\n' "$1" >>"$LOG_FILE" 2>/dev/null || true; }
-verbose() { [ "$FLAG_VERBOSE" = "1" ] && printf '%s[debug]%s %s\n' "$C_DIM" "$C_RESET" "$*" >&2 || true; }
+say() { printf '%s\n' "$*"; _log "[say] $*"; }
+ok()  { printf '  %s✓%s %s\n' "$C_GREEN" "$C_RESET" "$*"; _log "[ok ] $*"; }
+warn(){ printf '  %s⚠%s %s\n' "$C_YELLOW" "$C_RESET" "$*"; _log "[warn] $*"; }
+err() { printf '  %s✗%s %s\n' "$C_RED" "$C_RESET" "$*" >&2; _log "[err] $*"; }
+section() {
+    printf '\n  %s%s%s\n  %s\n' "$C_BOLD" "$1" "$C_RESET" "$(printf '─%.0s' $(seq 1 ${#1}))"
+    _log "=== $1 ==="
+}
+verbose() {
+    if [ "$FLAG_VERBOSE" = "1" ]; then
+        printf '%s[debug]%s %s\n' "$C_DIM" "$C_RESET" "$*" >&2
+    fi
+}
 fatal() { err "$*"; EXIT_REASON="$*"; exit 1; }
 
 # Run a command, log it. Honours --verbose and --dry-run.
 run() {
-    [ -n "$LOG_FILE" ] && printf '[run] %s\n' "$*" >>"$LOG_FILE" 2>/dev/null || true
+    _log "[run] $*"
     verbose "run: $*"
     if [ "$FLAG_DRY_RUN" = "1" ]; then
         printf '%s[dry-run]%s %s\n' "$C_DIM" "$C_RESET" "$*"
@@ -109,7 +125,7 @@ run() {
 
 # Run a command and capture stdout. Logged but not piped.
 run_capture() {
-    [ -n "$LOG_FILE" ] && printf '[run-capture] %s\n' "$*" >>"$LOG_FILE" 2>/dev/null || true
+    _log "[run-capture] $*"
     "$@"
 }
 
