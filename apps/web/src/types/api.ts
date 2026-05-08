@@ -763,6 +763,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/proxy/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the persisted domain / TLS config (owner only). */
+        get: operations["get_config_v1_admin_proxy_config_get"];
+        put?: never;
+        /** Set the domain + LE email and push a TLS Caddy config (owner only). */
+        post: operations["post_config_v1_admin_proxy_config_post"];
+        /** Clear the domain and revert Caddy to IP-only mode (owner only). */
+        delete: operations["delete_config_v1_admin_proxy_config_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/proxy/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Polled view of cert provisioning state (owner only).
+         * @description Polled by the SPA every ~3s while a domain change is applying.
+         *
+         *     Always returns 200 — Caddy admin errors land in ``error`` so
+         *     the UI can render the chip without distinguishing an HTTP 200
+         *     "no domain" from a 502 "admin API down".
+         */
+        get: operations["get_status_v1_admin_proxy_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/proxy/dns-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pre-flight DNS check (owner only). Never persisted.
+         * @description Resolve ``domain`` and compare against the host's outbound IP.
+         *
+         *     The match is a *hint*, not a hard block — propagation lag and
+         *     NAT make false negatives common. The SPA shows a warning
+         *     (not an error) when ``matches`` is false and lets the user
+         *     proceed anyway.
+         */
+        post: operations["dns_check_v1_admin_proxy_dns_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/internal/ingest": {
         parameters: {
             query?: never;
@@ -1670,6 +1738,93 @@ export interface components {
                     [key: string]: unknown;
                 };
             };
+        };
+        /**
+         * ProxyConfigIn
+         * @description Body for ``POST /v1/admin/proxy/config``.
+         *
+         *     Both fields are validated server-side before any orchestrator
+         *     work happens — a bad domain or empty email returns 422 *before*
+         *     we touch the Caddy admin API, so the SPA's pre-flight has a
+         *     clear contract.
+         */
+        ProxyConfigIn: {
+            /** Domain */
+            domain: string;
+            /** Letsencrypt Email */
+            letsencrypt_email: string;
+        };
+        /**
+         * ProxyConfigOut
+         * @description Current Caddy / domain config for Settings → Domain & HTTPS.
+         *
+         *     ``configured`` is true when both a domain and a Let's Encrypt
+         *     contact email are stored — that's the minimum the orchestrator
+         *     needs to push a TLS-enabled config. ``https_enabled`` reflects
+         *     the persisted toggle; the live cert provisioning state is
+         *     surfaced separately via ``ProxyStatusOut``.
+         */
+        ProxyConfigOut: {
+            /** Domain */
+            domain: string | null;
+            /** Letsencrypt Email */
+            letsencrypt_email: string | null;
+            /** Https Enabled */
+            https_enabled: boolean;
+            /** Configured */
+            configured: boolean;
+        };
+        /**
+         * ProxyDnsCheckIn
+         * @description Body for ``POST /v1/admin/proxy/dns-check``.
+         */
+        ProxyDnsCheckIn: {
+            /** Domain */
+            domain: string;
+        };
+        /**
+         * ProxyDnsCheckOut
+         * @description Pre-flight DNS resolution result.
+         *
+         *     ``resolved_ips`` is the A/AAAA record set the resolver returned
+         *     for ``domain``. ``server_ip`` is best-effort: the API container
+         *     sees its outbound NAT IP, not necessarily the public IP the
+         *     user pointed DNS at — so we surface ``matches`` only as a
+         *     soft hint, never as a hard block.
+         */
+        ProxyDnsCheckOut: {
+            /** Domain */
+            domain: string;
+            /** Resolved Ips */
+            resolved_ips: string[];
+            /** Server Ip */
+            server_ip: string | null;
+            /** Matches */
+            matches: boolean;
+            /** Error */
+            error?: string | null;
+        };
+        /**
+         * ProxyStatusOut
+         * @description Polled view of the current Caddy provisioning state.
+         *
+         *     The SPA hits this every ~3s while the chip shows "applying".
+         *     ``configured`` is the orchestrator's read on whether Caddy has
+         *     a TLS automation policy registered for ``domain``; ``error``
+         *     is set on the unhappy path so the UI can surface the raw
+         *     Caddy admin API response.
+         */
+        ProxyStatusOut: {
+            /** Domain */
+            domain: string | null;
+            /** Configured */
+            configured: boolean;
+            /** Https Enabled */
+            https_enabled: boolean;
+            /** Policy Count */
+            policy_count?: number | null;
+            /** Error */
+            error?: string | null;
         };
         /** RedeemIn */
         RedeemIn: {
@@ -3548,6 +3703,139 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BotChatOut"][];
+                };
+            };
+        };
+    };
+    get_config_v1_admin_proxy_config_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProxyConfigOut"];
+                };
+            };
+        };
+    };
+    post_config_v1_admin_proxy_config_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProxyConfigIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProxyConfigOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Caddy admin API rejected the new config or was unreachable. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_config_v1_admin_proxy_config_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProxyConfigOut"];
+                };
+            };
+        };
+    };
+    get_status_v1_admin_proxy_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProxyStatusOut"];
+                };
+            };
+        };
+    };
+    dns_check_v1_admin_proxy_dns_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProxyDnsCheckIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProxyDnsCheckOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

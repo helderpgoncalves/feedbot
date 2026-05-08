@@ -19,6 +19,7 @@ import { Route as authSetupRouteImport } from './routes/(auth)/setup'
 import { Route as authMagicRouteImport } from './routes/(auth)/magic'
 import { Route as authLoginRouteImport } from './routes/(auth)/login'
 import { Route as authedProjectsIndexRouteImport } from './routes/(authed)/projects/index'
+import { Route as authedSettingsProxyRouteImport } from './routes/(authed)/settings.proxy'
 import { Route as authedSettingsEmailRouteImport } from './routes/(authed)/settings.email'
 import { Route as authedSettingsBotRouteImport } from './routes/(authed)/settings.bot'
 import { Route as authedProjectsSlugRouteImport } from './routes/(authed)/projects/$slug'
@@ -73,6 +74,11 @@ const authedProjectsIndexRoute = authedProjectsIndexRouteImport.update({
   path: '/projects/',
   getParentRoute: () => authedRouteRoute,
 } as any)
+const authedSettingsProxyRoute = authedSettingsProxyRouteImport.update({
+  id: '/proxy',
+  path: '/proxy',
+  getParentRoute: () => authedSettingsRoute,
+} as any)
 const authedSettingsEmailRoute = authedSettingsEmailRouteImport.update({
   id: '/email',
   path: '/email',
@@ -111,6 +117,7 @@ export interface FileRoutesByFullPath {
   '/projects/$slug': typeof authedProjectsSlugRouteWithChildren
   '/settings/bot': typeof authedSettingsBotRoute
   '/settings/email': typeof authedSettingsEmailRoute
+  '/settings/proxy': typeof authedSettingsProxyRoute
   '/projects/': typeof authedProjectsIndexRoute
   '/projects/$slug/llm': typeof authedProjectsSlugLlmRoute
 }
@@ -126,6 +133,7 @@ export interface FileRoutesByTo {
   '/projects/$slug': typeof authedProjectsSlugRouteWithChildren
   '/settings/bot': typeof authedSettingsBotRoute
   '/settings/email': typeof authedSettingsEmailRoute
+  '/settings/proxy': typeof authedSettingsProxyRoute
   '/projects': typeof authedProjectsIndexRoute
   '/projects/$slug/llm': typeof authedProjectsSlugLlmRoute
 }
@@ -144,6 +152,7 @@ export interface FileRoutesById {
   '/(authed)/projects/$slug': typeof authedProjectsSlugRouteWithChildren
   '/(authed)/settings/bot': typeof authedSettingsBotRoute
   '/(authed)/settings/email': typeof authedSettingsEmailRoute
+  '/(authed)/settings/proxy': typeof authedSettingsProxyRoute
   '/(authed)/projects/': typeof authedProjectsIndexRoute
   '/(authed)/projects/$slug/llm': typeof authedProjectsSlugLlmRoute
 }
@@ -161,6 +170,7 @@ export interface FileRouteTypes {
     | '/projects/$slug'
     | '/settings/bot'
     | '/settings/email'
+    | '/settings/proxy'
     | '/projects/'
     | '/projects/$slug/llm'
   fileRoutesByTo: FileRoutesByTo
@@ -176,6 +186,7 @@ export interface FileRouteTypes {
     | '/projects/$slug'
     | '/settings/bot'
     | '/settings/email'
+    | '/settings/proxy'
     | '/projects'
     | '/projects/$slug/llm'
   id:
@@ -193,6 +204,7 @@ export interface FileRouteTypes {
     | '/(authed)/projects/$slug'
     | '/(authed)/settings/bot'
     | '/(authed)/settings/email'
+    | '/(authed)/settings/proxy'
     | '/(authed)/projects/'
     | '/(authed)/projects/$slug/llm'
   fileRoutesById: FileRoutesById
@@ -275,6 +287,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof authedProjectsIndexRouteImport
       parentRoute: typeof authedRouteRoute
     }
+    '/(authed)/settings/proxy': {
+      id: '/(authed)/settings/proxy'
+      path: '/proxy'
+      fullPath: '/settings/proxy'
+      preLoaderRoute: typeof authedSettingsProxyRouteImport
+      parentRoute: typeof authedSettingsRoute
+    }
     '/(authed)/settings/email': {
       id: '/(authed)/settings/email'
       path: '/email'
@@ -334,11 +353,13 @@ const authRouteRouteWithChildren = authRouteRoute._addFileChildren(
 interface authedSettingsRouteChildren {
   authedSettingsBotRoute: typeof authedSettingsBotRoute
   authedSettingsEmailRoute: typeof authedSettingsEmailRoute
+  authedSettingsProxyRoute: typeof authedSettingsProxyRoute
 }
 
 const authedSettingsRouteChildren: authedSettingsRouteChildren = {
   authedSettingsBotRoute: authedSettingsBotRoute,
   authedSettingsEmailRoute: authedSettingsEmailRoute,
+  authedSettingsProxyRoute: authedSettingsProxyRoute,
 }
 
 const authedSettingsRouteWithChildren = authedSettingsRoute._addFileChildren(

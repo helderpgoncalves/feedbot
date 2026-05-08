@@ -536,3 +536,87 @@ class BotChatOut(BaseModel):
     project_slug: str
     project_name: str
     created_at: datetime
+
+
+class ProxyConfigOut(BaseModel):
+    """Current Caddy / domain config for Settings → Domain & HTTPS.
+
+    ``configured`` is true when both a domain and a Let's Encrypt
+    contact email are stored — that's the minimum the orchestrator
+    needs to push a TLS-enabled config. ``https_enabled`` reflects
+    the persisted toggle; the live cert provisioning state is
+    surfaced separately via ``ProxyStatusOut``.
+    """
+
+    domain: str | None
+    letsencrypt_email: str | None
+    https_enabled: bool
+    configured: bool
+
+
+class ProxyConfigIn(BaseModel):
+    """Body for ``POST /v1/admin/proxy/config``.
+
+    Both fields are validated server-side before any orchestrator
+    work happens — a bad domain or empty email returns 422 *before*
+    we touch the Caddy admin API, so the SPA's pre-flight has a
+    clear contract.
+    """
+
+    domain: str = Field(
+        min_length=3,
+        max_length=253,
+        # Hostname-only: no scheme, no path, no port. Caddy parses
+        # the cleaned hostname; the SPA sends the user-typed value
+        # but trims whitespace before submit.
+        pattern=r"^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$",
+    )
+    letsencrypt_email: str = Field(
+        min_length=3,
+        max_length=255,
+        pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$",
+    )
+
+
+class ProxyStatusOut(BaseModel):
+    """Polled view of the current Caddy provisioning state.
+
+    The SPA hits this every ~3s while the chip shows "applying".
+    ``configured`` is the orchestrator's read on whether Caddy has
+    a TLS automation policy registered for ``domain``; ``error``
+    is set on the unhappy path so the UI can surface the raw
+    Caddy admin API response.
+    """
+
+    domain: str | None
+    configured: bool
+    https_enabled: bool
+    policy_count: int | None = None
+    error: str | None = None
+
+
+class ProxyDnsCheckIn(BaseModel):
+    """Body for ``POST /v1/admin/proxy/dns-check``."""
+
+    domain: str = Field(
+        min_length=3,
+        max_length=253,
+        pattern=r"^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$",
+    )
+
+
+class ProxyDnsCheckOut(BaseModel):
+    """Pre-flight DNS resolution result.
+
+    ``resolved_ips`` is the A/AAAA record set the resolver returned
+    for ``domain``. ``server_ip`` is best-effort: the API container
+    sees its outbound NAT IP, not necessarily the public IP the
+    user pointed DNS at — so we surface ``matches`` only as a
+    soft hint, never as a hard block.
+    """
+
+    domain: str
+    resolved_ips: list[str]
+    server_ip: str | None
+    matches: bool
+    error: str | None = None

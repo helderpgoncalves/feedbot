@@ -108,6 +108,42 @@
 			"chats_subtitle": "Every chat or group connected across this tenant's projects.",
 			"chats_empty": "No chats linked yet. Add the bot to a group from any project page.",
 			"chats_open_project": "Open project"
+		},
+		"proxy": {
+			"title": "Domain & HTTPS",
+			"subtitle": "Point a domain at Feedbot and let Caddy provision a Let's Encrypt certificate.",
+			"manage": "Manage",
+			"status": {
+				"applying": "Provisioning…",
+				"ok": "Live",
+				"error": "Error"
+			},
+			"empty_title": "No domain configured.",
+			"empty_body": "Feedbot is reachable at the server's IP. Add a DNS A/AAAA record pointing at this server, then enter the domain below.",
+			"live_title": "Open https://{{domain}}",
+			"live_body": "Cookies are domain-scoped — clicking the link will sign you out and back in on the new origin.",
+			"error_title": "Caddy reported an error",
+			"form_title": "Domain configuration",
+			"form_subtitle": "Saving pushes a new Caddy config and starts the ACME flow. Cert provisioning usually completes in under a minute.",
+			"domain": "Domain",
+			"domain_help": "Hostname only — no protocol, no path. Example: feedbot.example.com",
+			"letsencrypt_email": "Let's Encrypt contact email",
+			"letsencrypt_email_help": "Used by Let's Encrypt for expiry notices. Public per ACME policy.",
+			"check_dns": "Validate DNS",
+			"checking_dns": "Checking…",
+			"saving": "Saving — provisioning…",
+			"saved_toast": "Domain saved. Caddy is provisioning the certificate.",
+			"save_failed_toast": "Save failed: {{message}}",
+			"remove": "Remove domain",
+			"remove_title": "Remove domain?",
+			"remove_body": "Feedbot will fall back to IP-only HTTP. Active sessions on the domain will be invalidated.",
+			"remove_confirm": "Remove",
+			"removed_toast": "Domain removed. Reachable on the server IP only.",
+			"dns_result_title": "DNS lookup for {{domain}}",
+			"dns_resolved": "Resolves to",
+			"dns_server_ip": "This server",
+			"dns_match": "Looks good — DNS points at this server.",
+			"dns_mismatch": "Heads-up: DNS doesn't resolve to this server's outbound IP. This may just be propagation lag — proceed if you've configured the record recently."
 		}
 	},
 	"auth": {
