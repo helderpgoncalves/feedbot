@@ -86,8 +86,13 @@ services:
       # real FQDN at deploy time. On platforms without magic vars it's
       # ignored; the platform's own ingress config drives routing.
       SERVICE_FQDN_WEB_80: ""
-    volumes:
-      - ./caddy/Caddyfile.cloud:/etc/caddy/Caddyfile:ro
+    # Caddyfile lives in the compose itself (not a bind mount) so this
+    # file is the only artifact a platform needs to deploy. Coolify's
+    # "raw compose" mode and similar paste-and-deploy flows drop the
+    # rest of the repo, so external file references would 404.
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
     expose:
       - "80"
     depends_on:
@@ -184,3 +189,60 @@ networks:
 
 volumes:
   db_data:
+
+# ── Caddyfile (inline) ───────────────────────────────────────────────
+# Mirror of caddy/Caddyfile.cloud. Inlined so the compose file is
+# self-contained — works on Coolify "raw compose" deploys, paste-only
+# UIs, and one-shot `docker compose up` runs.
+configs:
+  caddyfile:
+    content: |
+      {
+        # TLS lives at the platform edge. Caddy here is plain HTTP only.
+        auto_https off
+        # Trust X-Forwarded-* from the platform proxy. Restricted to
+        # private ranges so a public attacker reaching :80 directly
+        # cannot spoof headers.
+        servers {
+          trusted_proxies static private_ranges
+        }
+      }
+
+      :80 {
+        encode gzip zstd
+
+        # /api/* → feedbot-api, with /api stripped before forwarding.
+        @api path /api/* /api
+        handle @api {
+          uri strip_prefix /api
+          reverse_proxy api:8000 {
+            header_up Host {http.reverse_proxy.upstream.host}
+            header_up X-Real-IP {remote}
+          }
+        }
+
+        # /mcp, /mcp/* → feedbot-api, path-preserving (Streamable HTTP).
+        @mcp path /mcp /mcp/*
+        handle @mcp {
+          reverse_proxy api:8000
+        }
+
+        # /healthz → feedbot-api (top-level liveness probe).
+        @healthz path /healthz
+        handle @healthz {
+          reverse_proxy api:8000
+        }
+
+        # Everything else → spa (static SPA via nginx).
+        handle {
+          reverse_proxy spa:80
+        }
+
+        header {
+          X-Content-Type-Options "nosniff"
+          X-Frame-Options "DENY"
+          Referrer-Policy "strict-origin-when-cross-origin"
+          Permissions-Policy "interest-cohort=(), camera=(), microphone=(), geolocation=()"
+          Cross-Origin-Opener-Policy "same-origin"
+        }
+      }
