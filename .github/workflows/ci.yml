@@ -155,3 +155,15 @@ jobs:
       - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  installer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Run install.sh integration tests
+        # Exercises --help, --dry-run --local, --dry-run --server, and
+        # validates the generated docker-compose.yml + .env + state.
+        # docker compose v2 is preinstalled on ubuntu-latest runners.
+        run: ./scripts/test_install_sh.sh
