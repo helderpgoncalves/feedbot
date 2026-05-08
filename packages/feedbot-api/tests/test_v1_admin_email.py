@@ -22,10 +22,9 @@ from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
+from feedbot_core.llm.crypto import encrypt_key
 from feedbot_core.models import Role
 from feedbot_core.repos import update_instance_config
-from feedbot_core.llm.crypto import encrypt_key
-
 
 # ── fixtures ────────────────────────────────────────────────────────
 
@@ -303,7 +302,7 @@ async def test_test_invokes_smtp_backend_when_configured(
 
     sent: list[dict] = []
 
-    def fake_send(self, *, to, subject, body):  # noqa: ANN001
+    def fake_send(self, *, to, subject, body):
         sent.append({"to": to, "subject": subject})
 
     from feedbot_api import email_backend
@@ -343,7 +342,7 @@ async def test_test_returns_truncated_error_on_smtp_failure(
 
     long_err = "x" * 1000
 
-    def fake_send(self, *, to, subject, body):  # noqa: ANN001
+    def fake_send(self, *, to, subject, body):
         raise RuntimeError(long_err)
 
     from feedbot_api import email_backend

@@ -37,7 +37,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from feedbot_api.cookies import client_ip, client_user_agent
 from feedbot_api.deps import get_session, require_owner, require_self_host
-from feedbot_api.orchestrator import Orchestrator, settings as orch_settings
+from feedbot_api.orchestrator import Orchestrator
+from feedbot_api.orchestrator import settings as orch_settings
 from feedbot_api.schemas import (
     BotChatOut,
     BotConfigIn,

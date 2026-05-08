@@ -19,7 +19,6 @@ from unittest.mock import AsyncMock
 import pytest
 from feedbot_core.models import Role
 
-
 # ── auth + cloud short-circuit ──────────────────────────────────────
 
 

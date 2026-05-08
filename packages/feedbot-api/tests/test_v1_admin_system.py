@@ -11,8 +11,6 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from feedbot_core.models import Role
-from feedbot_core.repos import update_instance_config
-
 
 # ── auth ────────────────────────────────────────────────────────────
 

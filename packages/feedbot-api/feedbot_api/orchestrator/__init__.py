@@ -33,7 +33,7 @@ Submodules:
 - ``audit``      — ``admin.config.changed`` + system events
 
 The ``Orchestrator`` facade composes them in the request-time order
-and exposes the small surface that I5–I8 routers actually call.
+and exposes the small surface that I5-I8 routers actually call.
 """
 
 from __future__ import annotations
@@ -416,13 +416,13 @@ class Orchestrator:
 
 __all__ = [
     "Orchestrator",
-    "is_self_host",
     "audit",
     "autostart",
     "backup",
     "caddy",
     "compose",
     "env",
+    "is_self_host",
     "settings",
     "updates",
 ]

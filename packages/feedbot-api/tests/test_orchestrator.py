@@ -36,7 +36,6 @@ from feedbot_api.orchestrator import (
 from feedbot_core.llm.crypto import encrypt_key
 from feedbot_core.repos import update_instance_config
 
-
 # ── env ─────────────────────────────────────────────────────────────
 
 

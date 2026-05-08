@@ -18,7 +18,6 @@ from feedbot_core.llm.crypto import encrypt_key
 from feedbot_core.models import ChatLink, Role
 from feedbot_core.repos import update_instance_config
 
-
 # ── fixtures ────────────────────────────────────────────────────────
 
 

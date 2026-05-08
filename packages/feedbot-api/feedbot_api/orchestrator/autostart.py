@@ -15,6 +15,7 @@ to support it untested.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 import platform
@@ -160,7 +161,7 @@ def _run(cmd: list[str]) -> subprocess.CompletedProcess[str]:
     error handling straightforward.
     """
     log.info("orchestrator.autostart: %s", " ".join(cmd))
-    return subprocess.run(  # noqa: S603 — fixed argv, no shell
+    return subprocess.run(
         cmd,
         check=False,
         capture_output=True,
@@ -269,10 +270,8 @@ def disable() -> AutostartStatus:
                 disable_cmd.stderr.strip(),
             )
         path = _systemd_unit_path()
-        try:
+        with contextlib.suppress(FileNotFoundError):
             path.unlink()
-        except FileNotFoundError:
-            pass
         _run(_systemctl_args(["daemon-reload"]))
         return status()
 
@@ -286,10 +285,8 @@ def disable() -> AutostartStatus:
                     unload.returncode,
                     unload.stderr.strip(),
                 )
-            try:
+            with contextlib.suppress(FileNotFoundError):
                 path.unlink()
-            except FileNotFoundError:
-                pass
         return status()
 
     return status()

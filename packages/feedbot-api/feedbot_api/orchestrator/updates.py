@@ -162,8 +162,9 @@ async def check() -> UpdateInfo:
     # sense when both sides are semver. Anything else falls back
     # to "available=True" so the operator at least sees the
     # button. They can opt out by ignoring it.
-    if cur and _is_release_tag(cur):
-        available = _semver_key(cur) < _semver_key(latest)
-    else:
-        available = True
+    available = (
+        _semver_key(cur) < _semver_key(latest)
+        if cur and _is_release_tag(cur)
+        else True
+    )
     return UpdateInfo(current=cur, latest=latest, available=available)

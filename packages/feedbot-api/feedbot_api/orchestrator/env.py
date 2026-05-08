@@ -16,6 +16,7 @@ verbatim by reading them from the existing file before rewriting.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 import tempfile
@@ -183,10 +184,8 @@ def write_atomic(path: Path, text: str) -> None:
         os.replace(tmp_name, path)
     except Exception:
         # Don't leave a stray ``.env.<rand>.tmp`` behind on failure.
-        try:
+        with contextlib.suppress(FileNotFoundError):
             os.unlink(tmp_name)
-        except FileNotFoundError:
-            pass
         raise
 
 

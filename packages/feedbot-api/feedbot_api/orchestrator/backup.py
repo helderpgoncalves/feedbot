@@ -61,10 +61,7 @@ def _backups_dir() -> Path:
     Tests can override the parent via ``FEEDBOT_BACKUPS_DIR``.
     """
     override = os.getenv("FEEDBOT_BACKUPS_DIR")
-    if override:
-        path = Path(override)
-    else:
-        path = _workdir() / _BACKUPS_SUBDIR
+    path = Path(override) if override else _workdir() / _BACKUPS_SUBDIR
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -165,7 +162,7 @@ async def _pg_dump_to_file(target: Path) -> None:
         "-Fc",  # custom format, restorable with pg_restore
         _DB_NAME,
     ]
-    log.info("orchestrator.backup: %s", " ".join(cmd[:6] + ["…"]))
+    log.info("orchestrator.backup: %s", " ".join([*cmd[:6], "…"]))
     with target.open("wb") as out_fd:
         proc = await asyncio.create_subprocess_exec(
             *cmd,

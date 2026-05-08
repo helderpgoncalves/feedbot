@@ -35,7 +35,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from feedbot_api.cookies import client_ip, client_user_agent
 from feedbot_api.deps import get_session, require_owner, require_self_host
 from feedbot_api.email_backend import SMTPBackend
-from feedbot_api.orchestrator import Orchestrator, settings as orch_settings
+from feedbot_api.orchestrator import Orchestrator
+from feedbot_api.orchestrator import settings as orch_settings
 from feedbot_api.schemas import (
     EmailConfigIn,
     EmailConfigOut,
@@ -164,7 +165,7 @@ async def post_test(
                 "invitation emails will work for your users."
             ),
         )
-    except Exception as exc:  # noqa: BLE001 — surface anything SMTP raises
+    except Exception as exc:
         log.warning("orchestrator email-test failed: %s", exc)
         return EmailTestOut(ok=False, error=_truncate(str(exc)))
 

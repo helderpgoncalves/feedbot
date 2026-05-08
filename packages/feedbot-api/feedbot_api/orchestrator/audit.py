@@ -19,7 +19,6 @@ from typing import Any
 from feedbot_core.audit import log_event
 from sqlalchemy.ext.asyncio import AsyncSession
 
-
 # Field names whose values are secret — tracking the *fact that they
 # changed* is fine, but the value itself never enters the audit row.
 _SECRET_FIELDS: frozenset[str] = frozenset(
