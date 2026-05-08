@@ -19,7 +19,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, createFileRoute, redirect } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
-import { Mail } from 'lucide-react';
+import { Mail, Send } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -36,6 +36,7 @@ import { meQueryOptions } from '@/lib/auth';
 import type { components } from '@/types/api';
 
 type EmailConfigOut = components['schemas']['EmailConfigOut'];
+type BotConfigOut = components['schemas']['BotConfigOut'];
 
 export const Route = createFileRoute('/(authed)/settings')({
 	beforeLoad: async ({ context }) => {
@@ -61,6 +62,14 @@ function SettingsIndex() {
 		queryFn: async () => {
 			const data = await unwrap(api.GET('/v1/admin/email/config'));
 			return data as unknown as EmailConfigOut;
+		},
+	});
+
+	const bot = useQuery({
+		queryKey: ['admin', 'bot', 'config'] as const,
+		queryFn: async () => {
+			const data = await unwrap(api.GET('/v1/admin/bot/config'));
+			return data as unknown as BotConfigOut;
 		},
 	});
 
@@ -93,6 +102,24 @@ function SettingsIndex() {
 					}
 					href="/settings/email"
 					linkLabel={t('settings.email.manage')}
+				/>
+				<SectionCard
+					icon={<Send className="size-5" />}
+					title={t('settings.bot.title')}
+					description={t('settings.bot.subtitle')}
+					status={
+						bot.isLoading ? (
+							<Skeleton className="h-5 w-16" />
+						) : bot.data?.configured ? (
+							<Badge variant="success">{t('settings.status.configured')}</Badge>
+						) : (
+							<Badge variant="secondary">
+								{t('settings.status.not_configured')}
+							</Badge>
+						)
+					}
+					href="/settings/bot"
+					linkLabel={t('settings.bot.manage')}
 				/>
 			</div>
 		</div>

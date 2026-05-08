@@ -318,6 +318,25 @@ async def list_chat_links(session: AsyncSession, project_id: int) -> list[ChatLi
     return list(rows.scalars())
 
 
+async def list_chat_links_for_tenant(
+    session: AsyncSession, tenant_id: int
+) -> list[tuple[ChatLink, Project]]:
+    """Every chat link across every project of a tenant.
+
+    Returned as ``(ChatLink, Project)`` tuples so callers can render
+    the slug/name without an extra round trip per row. Used by the
+    owner-only Settings → Telegram bot page to show "Connected in N
+    chats across M projects".
+    """
+    rows = await session.execute(
+        select(ChatLink, Project)
+        .join(Project, Project.id == ChatLink.project_id)
+        .where(Project.tenant_id == tenant_id)
+        .order_by(ChatLink.created_at.desc())
+    )
+    return list(rows.all())
+
+
 async def unlink_chat(session: AsyncSession, project_id: int, link_id: int) -> bool:
     link = await session.get(ChatLink, link_id)
     if not link or link.project_id != project_id:

@@ -703,6 +703,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/bot/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read bot config (owner only). The token is never returned. */
+        get: operations["get_config_v1_admin_bot_config_get"];
+        put?: never;
+        /** Update bot config + start the bot service (owner only). */
+        post: operations["post_config_v1_admin_bot_config_post"];
+        /** Stop the bot service and clear stored credentials (owner only). */
+        delete: operations["delete_config_v1_admin_bot_config_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/bot/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validate a Telegram bot token via getMe (owner only).
+         * @description Round-trip ``getMe`` against a fresh or stored token.
+         *
+         *     Always returns 200 with a structured outcome — UI renders the
+         *     raw error on failure. No persistence: this is a "did the user
+         *     paste a working token?" probe, not a settings mutation.
+         */
+        post: operations["post_test_v1_admin_bot_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/bot/chats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List every chat linked across the tenant's projects (owner only). */
+        get: operations["list_chats_v1_admin_bot_chats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/internal/ingest": {
         parameters: {
             query?: never;
@@ -905,6 +965,125 @@ export interface components {
             last_used_at: string | null;
             /** Revoked At */
             revoked_at: string | null;
+        };
+        /**
+         * BotChatOut
+         * @description One row of the tenant-wide chat-links list.
+         *
+         *     Mirrors ``ChatLinkOut`` but adds ``project_slug`` / ``project_name``
+         *     so the Settings page can show "@my-bot is linked in 4 projects"
+         *     without per-row joins from the SPA.
+         */
+        BotChatOut: {
+            /** Id */
+            id: number;
+            /** Platform */
+            platform: string;
+            /** Chat Id */
+            chat_id: string;
+            /** Title */
+            title: string | null;
+            /** Project Slug */
+            project_slug: string;
+            /** Project Name */
+            project_name: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * BotConfigIn
+         * @description Body for ``POST /v1/admin/bot/config``.
+         *
+         *     ``token`` follows the same tri-state pattern as the SMTP
+         *     password — ``None`` keeps, ``""`` clears, any other string
+         *     rotates / sets. The username is plain replace semantics; the
+         *     leading ``@`` is stripped server-side for forgiveness.
+         */
+        BotConfigIn: {
+            /**
+             * Token
+             * @description Plaintext Telegram bot token; encrypted server-side.
+             */
+            token?: string | null;
+            /** Username */
+            username?: string | null;
+        };
+        /**
+         * BotConfigOut
+         * @description Current Telegram bot config for Settings → Telegram bot.
+         *
+         *     The encrypted token is **never** returned. ``has_token`` exposes
+         *     only whether one is stored. ``configured`` is true when both
+         *     token and username are present (the username powers the
+         *     ``t.me/<username>?startgroup=…`` deep link the SPA shows).
+         */
+        BotConfigOut: {
+            /** Username */
+            username: string | null;
+            /** Has Token */
+            has_token: boolean;
+            /** Configured */
+            configured: boolean;
+        };
+        /**
+         * BotProfileOut
+         * @description Subset of Telegram's ``getMe`` payload safe to expose to the SPA.
+         *
+         *     The bot ``id`` is the public numeric identifier (it shows up in
+         *     every ``t.me/<username>`` link); ``username`` and ``first_name``
+         *     are likewise public. We deliberately don't expose anything the
+         *     bot's owner could rotate as a security measure (e.g. the secret
+         *     chat-link path) — Telegram has no such field on ``getMe`` today
+         *     but the allow-list keeps us safe if it changes.
+         */
+        BotProfileOut: {
+            /** Id */
+            id: number;
+            /** Username */
+            username: string | null;
+            /** First Name */
+            first_name: string | null;
+            /** Can Join Groups */
+            can_join_groups?: boolean | null;
+            /** Can Read All Group Messages */
+            can_read_all_group_messages?: boolean | null;
+        };
+        /**
+         * BotTestIn
+         * @description Body for ``POST /v1/admin/bot/test``.
+         *
+         *     The optional ``token`` lets the operator validate a fresh token
+         *     *before* saving — common pattern when a user pastes from
+         *     BotFather. When omitted the test runs against the currently
+         *     stored token.
+         */
+        BotTestIn: {
+            /**
+             * Token
+             * @description Optional override; tested as-is without persistence.
+             */
+            token?: string | null;
+        };
+        /**
+         * BotTestOut
+         * @description Outcome of ``POST /v1/admin/bot/test``.
+         *
+         *     ``ok=True`` carries the bot profile straight back so the UI can
+         *     show "Connected as @feedbot_acme_bot" without a second round
+         *     trip. ``ok=False`` carries a truncated error.
+         */
+        BotTestOut: {
+            /** Ok */
+            ok: boolean;
+            profile?: components["schemas"]["BotProfileOut"] | null;
+            /**
+             * Error
+             * @description Truncated Telegram error / network failure if ok=False.
+             */
+            error?: string | null;
         };
         /** ChatLinkOut */
         ChatLinkOut: {
@@ -3236,6 +3415,139 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_config_v1_admin_bot_config_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BotConfigOut"];
+                };
+            };
+        };
+    };
+    post_config_v1_admin_bot_config_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BotConfigIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BotConfigOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description DB write succeeded but the bot service failed to start. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_config_v1_admin_bot_config_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BotConfigOut"];
+                };
+            };
+        };
+    };
+    post_test_v1_admin_bot_test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BotTestIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BotTestOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_chats_v1_admin_bot_chats_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BotChatOut"][];
                 };
             };
         };

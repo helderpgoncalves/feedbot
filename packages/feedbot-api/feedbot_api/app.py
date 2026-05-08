@@ -32,6 +32,7 @@ from feedbot_api.rate_limit import limiter
 from feedbot_api.routers import (
     internal,
     v1,
+    v1_admin_bot,
     v1_admin_email,
     v1_auth,
     v1_feedbacks,
@@ -88,6 +89,7 @@ app.include_router(v1_feedbacks.router)
 app.include_router(v1_llm.router)
 app.include_router(v1_team.router)
 app.include_router(v1_admin_email.router)
+app.include_router(v1_admin_bot.router)
 app.include_router(internal.router)
 
 # Streamable-HTTP MCP server. The sub-app handles JSON-RPC; our auth middleware

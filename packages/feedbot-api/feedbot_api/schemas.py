@@ -440,3 +440,99 @@ class EmailTestOut(BaseModel):
         default=None,
         description="Truncated SMTP / connection error if ``ok`` is false.",
     )
+
+
+class BotProfileOut(BaseModel):
+    """Subset of Telegram's ``getMe`` payload safe to expose to the SPA.
+
+    The bot ``id`` is the public numeric identifier (it shows up in
+    every ``t.me/<username>`` link); ``username`` and ``first_name``
+    are likewise public. We deliberately don't expose anything the
+    bot's owner could rotate as a security measure (e.g. the secret
+    chat-link path) — Telegram has no such field on ``getMe`` today
+    but the allow-list keeps us safe if it changes.
+    """
+
+    id: int
+    username: str | None
+    first_name: str | None
+    can_join_groups: bool | None = None
+    can_read_all_group_messages: bool | None = None
+
+
+class BotConfigOut(BaseModel):
+    """Current Telegram bot config for Settings → Telegram bot.
+
+    The encrypted token is **never** returned. ``has_token`` exposes
+    only whether one is stored. ``configured`` is true when both
+    token and username are present (the username powers the
+    ``t.me/<username>?startgroup=…`` deep link the SPA shows).
+    """
+
+    username: str | None
+    has_token: bool
+    configured: bool
+
+
+class BotConfigIn(BaseModel):
+    """Body for ``POST /v1/admin/bot/config``.
+
+    ``token`` follows the same tri-state pattern as the SMTP
+    password — ``None`` keeps, ``""`` clears, any other string
+    rotates / sets. The username is plain replace semantics; the
+    leading ``@`` is stripped server-side for forgiveness.
+    """
+
+    token: str | None = Field(
+        default=None,
+        description="Plaintext Telegram bot token; encrypted server-side.",
+    )
+    username: str | None = Field(default=None, max_length=64)
+
+
+class BotTestIn(BaseModel):
+    """Body for ``POST /v1/admin/bot/test``.
+
+    The optional ``token`` lets the operator validate a fresh token
+    *before* saving — common pattern when a user pastes from
+    BotFather. When omitted the test runs against the currently
+    stored token.
+    """
+
+    token: str | None = Field(
+        default=None,
+        description="Optional override; tested as-is without persistence.",
+    )
+
+
+class BotTestOut(BaseModel):
+    """Outcome of ``POST /v1/admin/bot/test``.
+
+    ``ok=True`` carries the bot profile straight back so the UI can
+    show "Connected as @feedbot_acme_bot" without a second round
+    trip. ``ok=False`` carries a truncated error.
+    """
+
+    ok: bool
+    profile: BotProfileOut | None = None
+    error: str | None = Field(
+        default=None,
+        description="Truncated Telegram error / network failure if ok=False.",
+    )
+
+
+class BotChatOut(BaseModel):
+    """One row of the tenant-wide chat-links list.
+
+    Mirrors ``ChatLinkOut`` but adds ``project_slug`` / ``project_name``
+    so the Settings page can show "@my-bot is linked in 4 projects"
+    without per-row joins from the SPA.
+    """
+
+    id: int
+    platform: str
+    chat_id: str
+    title: str | None
+    project_slug: str
+    project_name: str
+    created_at: datetime

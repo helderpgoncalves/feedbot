@@ -20,6 +20,7 @@ import { Route as authMagicRouteImport } from './routes/(auth)/magic'
 import { Route as authLoginRouteImport } from './routes/(auth)/login'
 import { Route as authedProjectsIndexRouteImport } from './routes/(authed)/projects/index'
 import { Route as authedSettingsEmailRouteImport } from './routes/(authed)/settings.email'
+import { Route as authedSettingsBotRouteImport } from './routes/(authed)/settings.bot'
 import { Route as authedProjectsSlugRouteImport } from './routes/(authed)/projects/$slug'
 import { Route as authInvitesTokenRouteImport } from './routes/(auth)/invites.$token'
 import { Route as authedProjectsSlugLlmRouteImport } from './routes/(authed)/projects/$slug.llm'
@@ -77,6 +78,11 @@ const authedSettingsEmailRoute = authedSettingsEmailRouteImport.update({
   path: '/email',
   getParentRoute: () => authedSettingsRoute,
 } as any)
+const authedSettingsBotRoute = authedSettingsBotRouteImport.update({
+  id: '/bot',
+  path: '/bot',
+  getParentRoute: () => authedSettingsRoute,
+} as any)
 const authedProjectsSlugRoute = authedProjectsSlugRouteImport.update({
   id: '/projects/$slug',
   path: '/projects/$slug',
@@ -103,6 +109,7 @@ export interface FileRoutesByFullPath {
   '/team': typeof authedTeamRoute
   '/invites/$token': typeof authInvitesTokenRoute
   '/projects/$slug': typeof authedProjectsSlugRouteWithChildren
+  '/settings/bot': typeof authedSettingsBotRoute
   '/settings/email': typeof authedSettingsEmailRoute
   '/projects/': typeof authedProjectsIndexRoute
   '/projects/$slug/llm': typeof authedProjectsSlugLlmRoute
@@ -117,6 +124,7 @@ export interface FileRoutesByTo {
   '/team': typeof authedTeamRoute
   '/invites/$token': typeof authInvitesTokenRoute
   '/projects/$slug': typeof authedProjectsSlugRouteWithChildren
+  '/settings/bot': typeof authedSettingsBotRoute
   '/settings/email': typeof authedSettingsEmailRoute
   '/projects': typeof authedProjectsIndexRoute
   '/projects/$slug/llm': typeof authedProjectsSlugLlmRoute
@@ -134,6 +142,7 @@ export interface FileRoutesById {
   '/(authed)/team': typeof authedTeamRoute
   '/(auth)/invites/$token': typeof authInvitesTokenRoute
   '/(authed)/projects/$slug': typeof authedProjectsSlugRouteWithChildren
+  '/(authed)/settings/bot': typeof authedSettingsBotRoute
   '/(authed)/settings/email': typeof authedSettingsEmailRoute
   '/(authed)/projects/': typeof authedProjectsIndexRoute
   '/(authed)/projects/$slug/llm': typeof authedProjectsSlugLlmRoute
@@ -150,6 +159,7 @@ export interface FileRouteTypes {
     | '/team'
     | '/invites/$token'
     | '/projects/$slug'
+    | '/settings/bot'
     | '/settings/email'
     | '/projects/'
     | '/projects/$slug/llm'
@@ -164,6 +174,7 @@ export interface FileRouteTypes {
     | '/team'
     | '/invites/$token'
     | '/projects/$slug'
+    | '/settings/bot'
     | '/settings/email'
     | '/projects'
     | '/projects/$slug/llm'
@@ -180,6 +191,7 @@ export interface FileRouteTypes {
     | '/(authed)/team'
     | '/(auth)/invites/$token'
     | '/(authed)/projects/$slug'
+    | '/(authed)/settings/bot'
     | '/(authed)/settings/email'
     | '/(authed)/projects/'
     | '/(authed)/projects/$slug/llm'
@@ -270,6 +282,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof authedSettingsEmailRouteImport
       parentRoute: typeof authedSettingsRoute
     }
+    '/(authed)/settings/bot': {
+      id: '/(authed)/settings/bot'
+      path: '/bot'
+      fullPath: '/settings/bot'
+      preLoaderRoute: typeof authedSettingsBotRouteImport
+      parentRoute: typeof authedSettingsRoute
+    }
     '/(authed)/projects/$slug': {
       id: '/(authed)/projects/$slug'
       path: '/projects/$slug'
@@ -313,10 +332,12 @@ const authRouteRouteWithChildren = authRouteRoute._addFileChildren(
 )
 
 interface authedSettingsRouteChildren {
+  authedSettingsBotRoute: typeof authedSettingsBotRoute
   authedSettingsEmailRoute: typeof authedSettingsEmailRoute
 }
 
 const authedSettingsRouteChildren: authedSettingsRouteChildren = {
+  authedSettingsBotRoute: authedSettingsBotRoute,
   authedSettingsEmailRoute: authedSettingsEmailRoute,
 }
 
