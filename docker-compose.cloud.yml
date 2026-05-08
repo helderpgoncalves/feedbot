@@ -147,6 +147,10 @@ services:
   spa:
     <<: *defaults
     image: ghcr.io/helderpgoncalves/feedbot-web:${FEEDBOT_VERSION:-latest}
+    # Force a registry pull on every `compose up`. Coolify's
+    # auto-redeploy reuses the locally cached :latest otherwise, so a
+    # newly published image silently never reaches the running stack.
+    pull_policy: always
     labels:
       com.feedbot.installer: "true"
       com.feedbot.role: "spa"
@@ -166,6 +170,7 @@ services:
   api:
     <<: *defaults
     image: ghcr.io/helderpgoncalves/feedbot-api:${FEEDBOT_VERSION:-latest}
+    pull_policy: always
     labels:
       com.feedbot.installer: "true"
       com.feedbot.role: "api"
@@ -215,6 +220,7 @@ services:
     <<: *defaults
     profiles: ["bot"]
     image: ghcr.io/helderpgoncalves/feedbot-bot:${FEEDBOT_VERSION:-latest}
+    pull_policy: always
     labels:
       com.feedbot.installer: "true"
       com.feedbot.role: "bot"
