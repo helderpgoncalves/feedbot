@@ -1,0 +1,764 @@
+#!/usr/bin/env bash
+# ─────────────────────────────────────────────────────────────────────
+# feedbot — CLI for managing a self-hosted Feedbot deployment.
+#
+# Usage:
+#     feedbot                      Same as `feedbot status`.
+#     feedbot <command> [args]
+#
+# This script is the canonical CLI; ``install.sh`` drops it (or
+# fetches it from GitHub) into ``/usr/local/bin/feedbot`` and reads
+# the install location from ``$workdir/.install-state``.
+#
+# Philosophy: the dashboard's Settings page does day-to-day stuff
+# (SMTP, Telegram, domain). This CLI is for **lifecycle** (install,
+# upgrade, uninstall) and **escape hatches** (logs, exec, doctor)
+# when the UI is unreachable or when the action would be destructive.
+# ─────────────────────────────────────────────────────────────────────
+
+set -euo pipefail
+
+CLI_VERSION="0.2.0"
+GHCR_REGISTRY="ghcr.io/helderpgoncalves"
+INSTALLER_URL_DEFAULT="https://get.feedbot.dev"
+
+# ── Output helpers ─────────────────────────────────────────────────
+
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
+    C_RESET=$'\033[0m'
+    C_DIM=$'\033[2m'
+    C_RED=$'\033[31m'
+    C_GREEN=$'\033[32m'
+    C_YELLOW=$'\033[33m'
+    C_BOLD=$'\033[1m'
+else
+    C_RESET="" C_DIM="" C_RED="" C_GREEN="" C_YELLOW="" C_BOLD=""
+fi
+
+ok()    { printf '  %s✓%s %s\n' "$C_GREEN" "$C_RESET" "$*"; }
+warn()  { printf '  %s⚠%s %s\n' "$C_YELLOW" "$C_RESET" "$*"; }
+err()   { printf '  %s✗%s %s\n' "$C_RED" "$C_RESET" "$*" >&2; }
+info()  { printf '  %s%s%s\n' "$C_DIM" "$*" "$C_RESET"; }
+section() {
+    printf '\n  %s%s%s\n' "$C_BOLD" "$1" "$C_RESET"
+    printf '  %s\n' "$(printf '─%.0s' $(seq 1 ${#1}))"
+}
+fatal() { err "$*"; exit 1; }
+
+# ── Workdir resolution ────────────────────────────────────────────
+#
+# Priority: $FEEDBOT_WORKDIR env var, /opt/feedbot, $HOME/.feedbot.
+# An install-state file MUST exist; otherwise the CLI is being run
+# without a working install and we abort with an actionable hint.
+
+resolve_workdir() {
+    local candidates=()
+    [ -n "${FEEDBOT_WORKDIR:-}" ] && candidates+=("$FEEDBOT_WORKDIR")
+    candidates+=("/opt/feedbot" "${HOME}/.feedbot")
+
+    for c in "${candidates[@]}"; do
+        if [ -f "${c}/.install-state" ]; then
+            printf '%s\n' "$c"
+            return 0
+        fi
+    done
+
+    err "No Feedbot install found."
+    err "Looked at: ${candidates[*]}"
+    err ""
+    err "Install with: curl -fsSL ${INSTALLER_URL_DEFAULT} | sh"
+    return 1
+}
+
+WORKDIR=""
+ensure_workdir() {
+    [ -z "$WORKDIR" ] && WORKDIR="$(resolve_workdir)"
+    cd "$WORKDIR"
+}
+
+# ── docker compose wrapper ────────────────────────────────────────
+
+dc() {
+    docker compose -p feedbot "$@"
+}
+
+# ── .install-state JSON read (jq-free) ────────────────────────────
+#
+# Tiny key-extractor: matches `"key": "value"` or `"key": value` on
+# a single line. Sufficient for our flat schema; no nested keys
+# beyond config.* which we read explicitly.
+
+state_get() {
+    local key="$1"
+    sed -n "s/^[[:space:]]*\"${key}\":[[:space:]]*\"\\(.*\\)\".*/\\1/p" \
+        "${WORKDIR}/.install-state" | head -n 1
+}
+
+state_get_num() {
+    local key="$1"
+    sed -n "s/^[[:space:]]*\"${key}\":[[:space:]]*\\([0-9][0-9]*\\).*/\\1/p" \
+        "${WORKDIR}/.install-state" | head -n 1
+}
+
+# ── env-file read (used by `feedbot config`, `rotate-*`) ──────────
+#
+# Reads $1 from .env. Returns empty string on missing key.
+
+env_get() {
+    local key="$1"
+    sed -n "s/^${key}=\\(.*\\)\$/\\1/p" "${WORKDIR}/.env" | head -n 1
+}
+
+# Atomically replace KEY=value in .env. Same temp-file-then-rename
+# trick the orchestrator uses, so the file's mode (0600) is preserved.
+
+env_set() {
+    local key="$1" value="$2"
+    local tmp
+    tmp="$(mktemp "${WORKDIR}/.env.XXXXXX")"
+    # Preserve perms.
+    chmod --reference "${WORKDIR}/.env" "$tmp" 2>/dev/null \
+        || chmod 600 "$tmp"
+    # If the key exists, replace it; otherwise append.
+    if grep -q "^${key}=" "${WORKDIR}/.env"; then
+        # Use awk to avoid sed regex hell with arbitrary value chars.
+        awk -v k="$key" -v v="$value" '
+            BEGIN { FS=OFS="=" }
+            $1 == k { print k "=" v; next }
+            { print }
+        ' "${WORKDIR}/.env" >"$tmp"
+    else
+        cp "${WORKDIR}/.env" "$tmp"
+        printf '%s=%s\n' "$key" "$value" >>"$tmp"
+    fi
+    mv -f "$tmp" "${WORKDIR}/.env"
+}
+
+# ── Confirmation helpers ──────────────────────────────────────────
+
+confirm() {
+    local label="$1" default="${2:-y}"
+    local hint="[Y/n]"; [ "$default" = "n" ] && hint="[y/N]"
+    local ans
+    if [ ! -t 0 ]; then
+        # Non-interactive (script piping); accept default.
+        printf '%s\n' "$default"
+        [ "$default" = "y" ]
+        return $?
+    fi
+    read -r -p "  $label $hint " ans </dev/tty
+    [ -z "$ans" ] && ans="$default"
+    case "$ans" in [yY]|[yY][eE][sS]) return 0 ;; *) return 1 ;; esac
+}
+
+require_confirmation() {
+    # Triple-confirm for destructive operations. ``$1`` is the prompt.
+    local phrase="${2:-yes}"
+    local ans
+    warn "$1"
+    if [ ! -t 0 ]; then
+        err "Refusing: this command requires interactive confirmation."
+        return 1
+    fi
+    read -r -p "  Type '$phrase' to proceed: " ans </dev/tty
+    [ "$ans" = "$phrase" ]
+}
+
+# ─────────────────────────────────────────────────────────────────
+# SUBCOMMANDS
+# ─────────────────────────────────────────────────────────────────
+
+cmd_help() {
+    cat <<EOF
+feedbot ${CLI_VERSION} — manage a self-hosted Feedbot deployment.
+
+LIFECYCLE
+    status                     Service health + uptime + version (default).
+    start                      Bring the stack up.
+    stop                       Bring the stack down.
+    restart [service]          Restart all services or one (api|web|caddy|bot|db).
+    logs [service] [-f]        Tail compose logs. Defaults to all services.
+    exec <service> <cmd...>    Run a command inside a container.
+
+UPDATES
+    upgrade                    Pull latest images and recreate (preserves data).
+    self-update                Re-fetch this CLI from GitHub.
+    version                    Show installed + latest available.
+    info                       Platform / Docker / image versions.
+
+DIAGNOSTICS
+    doctor                     Comprehensive health check.
+    ports                      Show ports in use vs configured.
+    config                     Print .env (secrets redacted).
+    workdir                    Print the install workdir.
+
+BACKUP / RESTORE
+    backup [--out=path]        pg_dump + .env → tar.gz in <workdir>/backups/.
+    list-backups               List available backups.
+    restore <file>             Restore from a backup (DESTRUCTIVE).
+
+CONFIGURATION (escape hatches)
+    reconfigure                Re-run the install wizard.
+    rotate-secret-key          Generate a new FEEDBOT_SECRET_KEY (DESTRUCTIVE).
+    rotate-bot-token           Generate a new FEEDBOT_BOT_TOKEN.
+
+DEINSTALL
+    uninstall                  Remove containers, volumes, workdir, CLI (DESTRUCTIVE).
+
+MISC
+    help, --help, -h           This message.
+
+Configure SMTP, the Telegram bot, your domain, and HTTPS via the
+dashboard's Settings page — not this CLI.
+EOF
+}
+
+cmd_status() {
+    ensure_workdir
+    section "Feedbot · $(state_get installer_version 2>/dev/null || echo unknown)"
+    info "workdir: ${WORKDIR}"
+    info "url:     $(state_get public_url)"
+    printf '\n'
+    dc ps
+}
+
+cmd_start()   { ensure_workdir; dc up -d "$@"; }
+cmd_stop()    { ensure_workdir; dc down "$@"; }
+cmd_restart() { ensure_workdir; dc restart "$@"; }
+cmd_logs() {
+    ensure_workdir
+    # Default to following with --tail=200 — what 90% of "what's broken"
+    # debugging starts with. Pass --no-follow for one-shot.
+    local follow=1
+    local args=()
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --no-follow) follow=0; shift ;;
+            -f|--follow) follow=1; shift ;;
+            *) args+=("$1"); shift ;;
+        esac
+    done
+    if [ "$follow" = "1" ]; then
+        dc logs --tail=200 -f "${args[@]}"
+    else
+        dc logs --tail=200 "${args[@]}"
+    fi
+}
+
+cmd_exec() {
+    ensure_workdir
+    [ $# -lt 2 ] && fatal "Usage: feedbot exec <service> <cmd> [args...]"
+    local service="$1"; shift
+    dc exec -it "$service" "$@"
+}
+
+cmd_upgrade() {
+    ensure_workdir
+    section "Upgrading Feedbot"
+    info "Pulling latest images …"
+    dc pull
+    info "Recreating containers …"
+    dc up -d
+    ok "Upgrade complete. Migrations run on api boot."
+}
+
+cmd_self_update() {
+    section "Updating CLI"
+    local target
+    target="$(_cli_install_path)"
+    [ ! -w "$target" ] && fatal "Cannot write $target — try sudo."
+
+    local url="${FEEDBOT_INSTALLER_URL:-${INSTALLER_URL_DEFAULT}}"
+    # Re-running install.sh with --no-cli=0 (default) reinstalls the CLI.
+    # We intentionally don't fetch bin/feedbot directly to keep the
+    # update path identical to a fresh install.
+    info "Re-running installer ($url) — keeps your data, refreshes CLI."
+    if curl -fsSL "$url" | sh -s -- --upgrade --yes; then
+        ok "CLI updated. New version: $(feedbot version 2>/dev/null | head -1 || echo '?')"
+    else
+        fatal "Self-update failed; the existing CLI is unchanged."
+    fi
+}
+
+_cli_install_path() {
+    if command -v feedbot >/dev/null 2>&1; then
+        command -v feedbot
+    elif [ -f /usr/local/bin/feedbot ]; then
+        printf '/usr/local/bin/feedbot\n'
+    else
+        printf '%s/.feedbot/bin/feedbot\n' "$HOME"
+    fi
+}
+
+cmd_version() {
+    ensure_workdir
+    local current latest
+    current="$(state_get installer_version)"
+    printf '  %sCLI%s          %s\n' "$C_BOLD" "$C_RESET" "$CLI_VERSION"
+    printf '  %sInstalled%s    %s\n' "$C_BOLD" "$C_RESET" "$current"
+    if latest="$(_latest_ghcr_tag 2>/dev/null)"; then
+        printf '  %sLatest%s       %s\n' "$C_BOLD" "$C_RESET" "$latest"
+        if [ -n "$latest" ] && [ "$current" != "$latest" ] && [ "$current" != "dev" ]; then
+            warn "An update is available — run 'feedbot upgrade'."
+        fi
+    else
+        printf '  %sLatest%s       (couldn'\''t reach GHCR)\n' "$C_BOLD" "$C_RESET"
+    fi
+}
+
+# Anonymous GHCR token + tag list. Returns the highest semver tag for
+# the api image, which we treat as the canonical version pointer.
+_latest_ghcr_tag() {
+    local repo="${GHCR_REGISTRY#ghcr.io/}/feedbot-api"
+    local token tags
+    token="$(curl -fsS --max-time 5 \
+        "https://ghcr.io/token?scope=repository:${repo}:pull" 2>/dev/null \
+        | sed -n 's/.*"token":[[:space:]]*"\([^"]*\)".*/\1/p')"
+    [ -z "$token" ] && return 1
+    tags="$(curl -fsS --max-time 5 -H "Authorization: Bearer ${token}" \
+        "https://ghcr.io/v2/${repo}/tags/list" 2>/dev/null \
+        | sed -n 's/.*"tags":\[\([^]]*\)\].*/\1/p' \
+        | tr ',' '\n' | tr -d '" ' )"
+    [ -z "$tags" ] && return 1
+    # Filter to v?MAJOR.MINOR.PATCH and sort by version.
+    printf '%s\n' "$tags" \
+        | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+([.+-][a-zA-Z0-9.+-]*)?$' \
+        | sort -V \
+        | tail -n 1
+}
+
+cmd_info() {
+    ensure_workdir
+    section "Platform"
+    info "OS:     $(state_get os) $(state_get version 2>/dev/null || true)"
+    info "Arch:   $(state_get arch)"
+    info "Mode:   $(state_get mode)"
+
+    section "Docker"
+    docker --version | sed 's/^/  /'
+    docker compose version | sed 's/^/  /'
+
+    section "Images"
+    dc ps --format '{{.Service}}  {{.Image}}' 2>/dev/null \
+        | sort -u | sed 's/^/  /'
+}
+
+cmd_ports() {
+    ensure_workdir
+    local bind_host http_port
+    bind_host="$(env_get FEEDBOT_BIND_HOST)"
+    http_port="$(env_get FEEDBOT_HTTP_PORT)"
+
+    section "Configured"
+    info "FEEDBOT_BIND_HOST = ${bind_host}"
+    info "FEEDBOT_HTTP_PORT = ${http_port}"
+
+    section "Live"
+    if command -v ss >/dev/null 2>&1; then
+        ss -ltnp 2>/dev/null | awk '/:'"${http_port}"'/ {print "  " $0}' \
+            | head -n 5
+    elif command -v lsof >/dev/null 2>&1; then
+        lsof -nP -iTCP:"${http_port}" -sTCP:LISTEN 2>/dev/null \
+            | awk 'NR > 1 {print "  " $0}' | head -n 5
+    else
+        warn "Neither ss nor lsof available — install one to inspect listeners."
+    fi
+}
+
+cmd_config() {
+    ensure_workdir
+    section "Effective config (.env)"
+    # Redact anything that looks like a secret. Conservative: any key
+    # ending in _KEY/_TOKEN/_PASSWORD or starting with SMTP_/TELEGRAM_.
+    awk -F= '
+        /^#/ { print "  " $0; next }
+        /^[[:space:]]*$/ { print; next }
+        /(_KEY|_TOKEN|_PASSWORD)=/ {
+            if (length($2) > 0) print "  " $1 "=<redacted>";
+            else print "  " $0;
+            next
+        }
+        /^SMTP_/ {
+            if (length($2) > 0 && $1 != "SMTP_HOST" && $1 != "SMTP_PORT" && $1 != "SMTP_FROM" && $1 != "SMTP_USER")
+                print "  " $1 "=<redacted>";
+            else print "  " $0;
+            next
+        }
+        { print "  " $0 }
+    ' "${WORKDIR}/.env"
+}
+
+cmd_workdir() {
+    ensure_workdir
+    printf '%s\n' "$WORKDIR"
+}
+
+# ── doctor ────────────────────────────────────────────────────────
+
+cmd_doctor() {
+    ensure_workdir
+    local issues=0
+    local warnings=0
+
+    section "Stack"
+    # docker compose ps --format json: NDJSON or JSON-array depending on
+    # version. Same parsing as the orchestrator's status endpoint.
+    local ps_out
+    ps_out="$(dc ps --format json 2>/dev/null || true)"
+    if [ -z "$ps_out" ]; then
+        warn "stack       not running (run 'feedbot start')"
+        warnings=$((warnings + 1))
+    else
+        for s in caddy web api db; do
+            local state
+            state="$(printf '%s\n' "$ps_out" \
+                | _doctor_extract_state "$s")"
+            case "$state" in
+                running) ok "${s}         ${state}" ;;
+                "")      warn "${s}         not running"; warnings=$((warnings + 1)) ;;
+                *)       err "${s}         ${state}"; issues=$((issues + 1)) ;;
+            esac
+        done
+        local bot_state
+        bot_state="$(printf '%s\n' "$ps_out" | _doctor_extract_state bot)"
+        if [ -z "$bot_state" ]; then
+            warn "bot         not enabled (configure in Settings → Telegram bot)"
+        else
+            ok "bot         ${bot_state}"
+        fi
+    fi
+
+    section "Connectivity"
+    local bind_host http_port
+    bind_host="$(env_get FEEDBOT_BIND_HOST)"
+    http_port="$(env_get FEEDBOT_HTTP_PORT)"
+    local base="http://${bind_host}:${http_port}"
+
+    if curl -fsS --max-time 3 "${base}/healthz" >/dev/null 2>&1; then
+        ok "/healthz             200"
+    else
+        err "/healthz             unreachable"
+        issues=$((issues + 1))
+    fi
+    if curl -fsS --max-time 3 "${base}/config.json" >/dev/null 2>&1; then
+        ok "/config.json         200"
+    else
+        warn "/config.json         unreachable"
+        warnings=$((warnings + 1))
+    fi
+    if curl -fsS --max-time 3 "${base}/v1/setup-status" >/dev/null 2>&1; then
+        ok "/v1/setup-status     200"
+    else
+        warn "/v1/setup-status     unreachable"
+        warnings=$((warnings + 1))
+    fi
+
+    section "Disk"
+    if [ -d "${WORKDIR}" ]; then
+        ok "$(printf '%-20s %s' workdir "$(du -sh "${WORKDIR}" 2>/dev/null | cut -f1) on ${WORKDIR}")"
+    fi
+    if [ -d "${WORKDIR}/postgres/data" ]; then
+        local pg_size
+        pg_size="$(du -sh "${WORKDIR}/postgres/data" 2>/dev/null | cut -f1)"
+        if [ -n "$pg_size" ]; then
+            ok "$(printf '%-20s %s' "postgres data" "$pg_size")"
+        fi
+    fi
+
+    section "Configuration"
+    if [ -f "${WORKDIR}/.env" ]; then
+        if [ -s "${WORKDIR}/.env" ]; then
+            ok ".env present and non-empty"
+        else
+            err ".env exists but is empty"
+            issues=$((issues + 1))
+        fi
+        local secret
+        secret="$(env_get FEEDBOT_SECRET_KEY)"
+        if [ ${#secret} -ge 32 ]; then
+            ok "FEEDBOT_SECRET_KEY (${#secret} bytes)"
+        else
+            err "FEEDBOT_SECRET_KEY too short (${#secret} bytes; need ≥32)"
+            issues=$((issues + 1))
+        fi
+        if [ -n "$(env_get SMTP_HOST)" ]; then
+            ok "EMAIL_BACKEND=smtp ($(env_get SMTP_HOST))"
+        else
+            warn "EMAIL_BACKEND not configured (Settings → Email to enable)"
+            warnings=$((warnings + 1))
+        fi
+    else
+        err ".env missing — install seems broken"
+        issues=$((issues + 1))
+    fi
+
+    section "Updates"
+    local current latest
+    current="$(state_get installer_version)"
+    info "Installed:  ${current}"
+    if latest="$(_latest_ghcr_tag 2>/dev/null)" && [ -n "$latest" ]; then
+        if [ "$current" = "$latest" ] || [ "$current" = "dev" ]; then
+            ok "Up to date"
+        else
+            warn "Available:  ${latest}  (run 'feedbot upgrade')"
+            warnings=$((warnings + 1))
+        fi
+    else
+        warn "Couldn't reach GHCR — skip"
+    fi
+
+    printf '\n'
+    if [ "$issues" -gt 0 ]; then
+        err "${issues} issue(s), ${warnings} warning(s)."
+        return 1
+    elif [ "$warnings" -gt 0 ]; then
+        warn "${warnings} warning(s); no critical issues."
+    else
+        ok "No critical issues."
+    fi
+}
+
+# Extract the "State" field from one or more compose-ps json rows for
+# a given service name. Handles both NDJSON and JSON-array shapes.
+_doctor_extract_state() {
+    local service="$1"
+    # Match {"...,"Service":"<svc>",...,"State":"<state>",...} or
+    # {"...,"Name":"feedbot-<svc>-1",...}.
+    awk -v svc="$service" '
+        BEGIN { state = "" }
+        {
+            line = $0
+            # quick filter
+            if (line !~ ("\"Service\":\"" svc "\"") && line !~ ("\"" svc "\"")) next
+            n = split(line, parts, "\"State\":\"")
+            if (n > 1) {
+                rest = parts[2]
+                end = index(rest, "\"")
+                if (end > 0) {
+                    state = substr(rest, 1, end - 1)
+                    print state
+                    exit
+                }
+            }
+        }
+    '
+}
+
+# ── backup / restore ──────────────────────────────────────────────
+
+cmd_backup() {
+    ensure_workdir
+    local out_dir="${WORKDIR}/backups"
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --out=*) out_dir="${1#--out=}" ;;
+            *) fatal "Unknown flag: $1" ;;
+        esac
+        shift
+    done
+    mkdir -p "$out_dir"
+    local ts; ts="$(date -u +%Y%m%dT%H%M%SZ)"
+    local file="${out_dir}/feedbot-${ts}.tar.gz"
+
+    section "Creating backup"
+    info "Streaming pg_dump …"
+    local stage; stage="$(mktemp -d)"
+    trap 'rm -rf "$stage"' RETURN
+    if ! dc exec -T db pg_dump -U feedbot -Fc feedbot >"${stage}/db.sql" 2>"${stage}/dump.err"; then
+        cat "${stage}/dump.err" >&2
+        fatal "pg_dump failed; backup not written."
+    fi
+    cp -p "${WORKDIR}/.env" "${stage}/.env" 2>/dev/null || true
+
+    info "Writing $file …"
+    (cd "$stage" && tar czf "$file" db.sql .env 2>/dev/null) \
+        || fatal "Failed to create tarball."
+    chmod 600 "$file"
+    ok "Backup written: $(du -h "$file" | cut -f1) → $file"
+}
+
+cmd_list_backups() {
+    ensure_workdir
+    section "Backups in ${WORKDIR}/backups"
+    if [ ! -d "${WORKDIR}/backups" ]; then
+        info "(none)"
+        return 0
+    fi
+
+    # ``find -print0`` + sort -r -z is the portable way to enumerate
+    # tarballs newest-first without parsing ls. Stat for size differs
+    # between BSD (-f%z) and GNU (-c%s); detect once.
+    local stat_size
+    if stat -f%z /dev/null >/dev/null 2>&1; then
+        stat_size='stat -f%z'   # BSD / macOS
+    else
+        stat_size='stat -c%s'   # GNU
+    fi
+
+    local count=0
+    while IFS= read -r -d '' file; do
+        local size; size="$($stat_size "$file" 2>/dev/null || echo '?')"
+        local name; name="$(basename "$file")"
+        # Pull the timestamp out of the filename rather than parsing
+        # mtime — the orchestrator's naming gives us a UTC stamp for
+        # free, and survives copy/move.
+        printf '  %-40s  %s bytes\n' "$name" "$size"
+        count=$((count + 1))
+    done < <(find "${WORKDIR}/backups" -maxdepth 1 -type f -name 'feedbot-*.tar.gz' -print0 2>/dev/null \
+             | sort -rz)
+
+    if [ "$count" -eq 0 ]; then
+        info "(none)"
+    fi
+    return 0
+}
+
+cmd_restore() {
+    ensure_workdir
+    [ $# -lt 1 ] && fatal "Usage: feedbot restore <file>"
+    local file="$1"
+    [ ! -f "$file" ] && fatal "Backup file not found: $file"
+
+    require_confirmation \
+        "RESTORE will OVERWRITE the current database with the contents of $file." \
+        "RESTORE" \
+        || { warn "Aborted."; return 1; }
+
+    section "Restoring from $file"
+    local stage; stage="$(mktemp -d)"
+    trap 'rm -rf "$stage"' RETURN
+    tar xzf "$file" -C "$stage" || fatal "Could not extract backup."
+    [ -f "${stage}/db.sql" ] || fatal "Backup is missing db.sql."
+
+    info "Stopping api …"
+    dc stop api bot 2>/dev/null || true
+
+    info "Dropping + recreating database …"
+    dc exec -T db psql -U feedbot -d postgres -c "DROP DATABASE IF EXISTS feedbot;" \
+        >/dev/null || fatal "drop database failed"
+    dc exec -T db psql -U feedbot -d postgres -c "CREATE DATABASE feedbot;" \
+        >/dev/null || fatal "create database failed"
+
+    info "Restoring …"
+    if ! dc exec -T db pg_restore -U feedbot -d feedbot --clean --if-exists --no-owner \
+            <"${stage}/db.sql"; then
+        fatal "pg_restore failed; database may be in an inconsistent state."
+    fi
+
+    info "Starting api …"
+    dc up -d api
+    ok "Restore complete. The api will run any pending migrations on boot."
+}
+
+# ── rotate-secret-key / rotate-bot-token ─────────────────────────
+
+cmd_rotate_secret_key() {
+    ensure_workdir
+    require_confirmation \
+        "Rotating FEEDBOT_SECRET_KEY will invalidate all sessions and stored LLM API keys." \
+        "ROTATE" \
+        || { warn "Aborted."; return 1; }
+    local new
+    new="$(openssl rand -base64 48 | tr -d '\n')"
+    env_set FEEDBOT_SECRET_KEY "$new"
+    info "Restarting api with new key …"
+    dc restart api
+    ok "FEEDBOT_SECRET_KEY rotated. Owners must re-enter LLM keys via the UI."
+}
+
+cmd_rotate_bot_token() {
+    ensure_workdir
+    if ! confirm "Rotate FEEDBOT_BOT_TOKEN?" "y"; then
+        warn "Aborted."; return 1
+    fi
+    local new
+    new="$(openssl rand -base64 32 | tr -d '\n')"
+    env_set FEEDBOT_BOT_TOKEN "$new"
+    info "Restarting api + bot with new shared secret …"
+    dc restart api bot 2>/dev/null || dc restart api
+    ok "FEEDBOT_BOT_TOKEN rotated."
+}
+
+# ── reconfigure / uninstall ──────────────────────────────────────
+
+cmd_reconfigure() {
+    ensure_workdir
+    section "Re-running installer (reconfigure mode)"
+    local url="${FEEDBOT_INSTALLER_URL:-${INSTALLER_URL_DEFAULT}}"
+    info "Fetching $url …"
+    curl -fsSL "$url" | sh -s -- --upgrade --workdir="$WORKDIR"
+}
+
+cmd_uninstall() {
+    ensure_workdir
+    warn "This will REMOVE Feedbot completely from this machine:"
+    info "  - all containers + volumes (PERMANENT data loss)"
+    info "  - the workdir at $WORKDIR"
+    info "  - the feedbot CLI binary"
+    require_confirmation \
+        "I understand all data will be lost." \
+        "UNINSTALL" \
+        || { warn "Aborted."; return 1; }
+    if ! confirm "Are you absolutely sure?" "n"; then
+        warn "Aborted."; return 1
+    fi
+
+    info "Bringing the stack down …"
+    dc down -v 2>/dev/null || true
+
+    info "Removing workdir $WORKDIR …"
+    rm -rf "$WORKDIR"
+
+    local cli_path
+    cli_path="$(_cli_install_path)"
+    if [ -f "$cli_path" ] && [ -w "$(dirname "$cli_path")" ]; then
+        info "Removing CLI at $cli_path …"
+        rm -f "$cli_path"
+    elif [ -f "$cli_path" ]; then
+        warn "CLI at $cli_path is not writable — remove it manually:"
+        info "  sudo rm $cli_path"
+    fi
+
+    ok "Feedbot uninstalled. Goodbye."
+}
+
+# ─────────────────────────────────────────────────────────────────
+# Dispatch
+# ─────────────────────────────────────────────────────────────────
+
+main() {
+    local cmd="${1:-status}"
+    [ $# -gt 0 ] && shift || true
+
+    case "$cmd" in
+        status)            cmd_status "$@" ;;
+        start)             cmd_start "$@" ;;
+        stop)              cmd_stop "$@" ;;
+        restart)           cmd_restart "$@" ;;
+        logs)              cmd_logs "$@" ;;
+        exec)              cmd_exec "$@" ;;
+        upgrade)           cmd_upgrade "$@" ;;
+        self-update)       cmd_self_update "$@" ;;
+        version|-V)        cmd_version "$@" ;;
+        info)              cmd_info "$@" ;;
+        doctor)            cmd_doctor "$@" ;;
+        ports)             cmd_ports "$@" ;;
+        config)            cmd_config "$@" ;;
+        workdir)           cmd_workdir "$@" ;;
+        backup)            cmd_backup "$@" ;;
+        list-backups)      cmd_list_backups "$@" ;;
+        restore)           cmd_restore "$@" ;;
+        rotate-secret-key) cmd_rotate_secret_key "$@" ;;
+        rotate-bot-token)  cmd_rotate_bot_token "$@" ;;
+        reconfigure)       cmd_reconfigure "$@" ;;
+        uninstall)         cmd_uninstall "$@" ;;
+        help|--help|-h)    cmd_help ;;
+        *)
+            err "Unknown command: $cmd"
+            err "Run 'feedbot --help' for the list of commands."
+            exit 2
+            ;;
+    esac
+}
+
+main "$@"

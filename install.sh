@@ -1159,10 +1159,18 @@ _spin() {
 }
 
 # ─────────────────────────────────────────────────────────────────────
-# Stage 11 — Install CLI shim
-# (The full CLI lands in I10; for now ship a wrapper.)
+# Stage 11 — Install CLI
+#
+# The canonical CLI ships at ``bin/feedbot`` in the repo. We fetch it
+# from GitHub raw at the version pinned by ``--version`` (defaults to
+# ``main`` for the floating ``latest`` tag). On any fetch failure we
+# fall back to a tiny inline shim so the install never blocks on a
+# transient network blip — the user can re-run ``feedbot self-update``
+# later to get the full CLI.
 # ─────────────────────────────────────────────────────────────────────
 
+# Repo + branch/tag the CLI is fetched from.
+CLI_REPO="helderpgoncalves/feedbot"
 CLI_PATH=""
 
 stage11_install_cli() {
@@ -1176,10 +1184,38 @@ stage11_install_cli() {
         run mkdir -p "$(dirname "$_target")"
     fi
 
+    # The "latest" floating tag corresponds to whatever's on main.
+    # Pinned versions (vX.Y.Z) fetch the exact tag from GitHub.
+    _ref="main"
+    case "$FLAG_VERSION" in
+        latest|"") _ref="main" ;;
+        *) _ref="$FLAG_VERSION" ;;
+    esac
+    _cli_url="https://raw.githubusercontent.com/${CLI_REPO}/${_ref}/bin/feedbot"
+
+    if curl -fsSL --max-time 15 "$_cli_url" -o "$_target" 2>/dev/null \
+        && [ -s "$_target" ]; then
+        chmod +x "$_target"
+        ok "CLI installed from $_cli_url"
+    else
+        warn "Couldn't fetch full CLI from GitHub; installing minimal shim."
+        warn "Run 'feedbot self-update' once you're online to get the full CLI."
+        _write_cli_shim "$_target"
+    fi
+
+    CLI_PATH="$_target"
+    case ":$PATH:" in
+        *":$(dirname "$_target"):"*) : ;;
+        *) warn "Add $(dirname "$_target") to your PATH to use 'feedbot' from anywhere." ;;
+    esac
+}
+
+_write_cli_shim() {
+    _target="$1"
     cat >"$_target" <<EOF
 #!/bin/sh
-# Minimal feedbot CLI shim (full CLI lands in a follow-up release).
-# Reads .install-state to find the workdir, then proxies to docker compose.
+# Fallback feedbot CLI shim — install.sh couldn't fetch the full
+# CLI from GitHub. Run 'feedbot self-update' to refresh.
 set -eu
 WORKDIR="${WORKDIR}"
 [ ! -d "\$WORKDIR" ] && {
@@ -1195,22 +1231,17 @@ case "\${1:-}" in
     stop) docker compose down ;;
     upgrade) docker compose pull && docker compose up -d ;;
     workdir) printf '%s\n' "\$WORKDIR" ;;
+    self-update) curl -fsSL https://get.feedbot.dev | sh -s -- --upgrade --yes ;;
     version)
         if [ -f .install-state ]; then
             sed -n 's/.*"installer_version": "\\(.*\\)".*/\\1/p' .install-state | head -1
         fi ;;
     *)
-        printf 'Usage: feedbot {status|logs|restart|start|stop|upgrade|workdir|version}\n' >&2
+        printf 'Usage: feedbot {status|logs|restart|start|stop|upgrade|self-update|workdir|version}\n' >&2
         exit 2 ;;
 esac
 EOF
     chmod +x "$_target"
-    CLI_PATH="$_target"
-    ok "CLI installed at $_target"
-    case ":$PATH:" in
-        *":$(dirname "$_target"):"*) : ;;
-        *) warn "Add $(dirname "$_target") to your PATH to use 'feedbot' from anywhere." ;;
-    esac
 }
 
 rollback_stage11() {

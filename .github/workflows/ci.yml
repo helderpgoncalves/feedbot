@@ -167,3 +167,7 @@ jobs:
         # validates the generated docker-compose.yml + .env + state.
         # docker compose v2 is preinstalled on ubuntu-latest runners.
         run: ./scripts/test_install_sh.sh
+      - name: Run feedbot CLI integration tests
+        # Workdir resolution, redaction, backup listing — read-only
+        # paths that don't need a live Docker stack.
+        run: ./scripts/test_feedbot_cli.sh
