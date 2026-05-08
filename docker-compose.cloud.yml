@@ -1,37 +1,56 @@
 # ─────────────────────────────────────────────────────────────────────
-# Feedbot — cloud deployment compose for Coolify.
+# Feedbot — cloud deployment compose.
 #
-# Differs from the self-host docker-compose.yml in three ways:
+# Designed to work on ANY self-hosting platform with zero
+# platform-specific labels:
+#   • Coolify  (uses SERVICE_FQDN_WEB_80 magic var below)
+#   • Dokploy  (same magic var convention)
+#   • Plain Docker behind nginx-proxy-manager / Traefik / Caddy
+#   • Kubernetes / Nomad / fly.io (point ingress at the `web` service)
 #
-#   1. No internal `caddy` service. Coolify's Traefik handles TLS +
-#      routing for app.feedbot.dev directly to web/api below.
-#   2. Traefik labels on every public-facing service so Coolify
-#      auto-issues a Let's Encrypt cert for app.feedbot.dev.
-#   3. FEEDBOT_DEPLOYMENT=cloud — hides the Settings → System UI
-#      since cloud operators don't have host access to drive the
-#      orchestrator anyway.
+# Topology — identical to the self-host stack:
 #
-# Usage in Coolify:
-#   1. Create an Application → Source: Git Repository → this repo,
-#      branch main.
-#   2. Build pack: Docker Compose. Compose file: docker-compose.cloud.yml.
-#   3. Set the env vars listed in the "REQUIRED ENV VARS" section
-#      below (FEEDBOT_SECRET_KEY, FEEDBOT_BOT_TOKEN, FEEDBOT_DB_PASSWORD,
-#      FEEDBOT_BASE_URL, FEEDBOT_PUBLIC_URL).
-#   4. Set the public domain to app.feedbot.dev.
-#   5. Deploy. Traefik auto-issues the cert.
+#   <platform-edge> → web (caddy edge) → spa (nginx, static SPA)
+#                                      → api (FastAPI + MCP)
+#                                      → bot (Telegram, opt-in)
+#                                      → db  (postgres)
 #
-# REQUIRED ENV VARS (set in Coolify's Application → Environment):
+# The `web` service is a small caddy that does same-origin path
+# routing (/api, /mcp, /healthz → api; everything else → spa). The
+# platform's edge proxy terminates TLS and forwards plain HTTP to it
+# on port 80, so the same caddy config powers both self-host (caddy
+# does TLS too) and cloud (platform does TLS).
+#
+# WHY THIS LAYOUT
+#   1. Zero coupling to the host's reverse proxy. No Traefik labels,
+#      no Caddy directives leaked into the compose. The platform sees
+#      one HTTP service (`web`) on port 80.
+#   2. Path routing lives in caddy/Caddyfile.cloud — one source of
+#      truth, the self-host caddy/Caddyfile mirrors it.
+#   3. The bot is the only container that talks to the outside world
+#      (Telegram), and it's opt-in via profile.
+#
+# DEPLOY
+#   1. Point your platform at this repo, branch main.
+#   2. Pick `docker-compose.cloud.yml` as the compose file.
+#   3. Set the env vars in REQUIRED ENV VARS below.
+#   4. On Coolify / Dokploy: set the public domain on the `web`
+#      service. Magic-var platforms auto-issue a Let's Encrypt cert
+#      and route traffic to web:80.
+#   5. Deploy.
+#
+# REQUIRED ENV VARS
 #   FEEDBOT_SECRET_KEY      48-byte base64; rotate via `feedbot rotate-secret-key`.
 #   FEEDBOT_BOT_TOKEN       32-byte base64; bot↔api shared secret.
 #   FEEDBOT_DB_PASSWORD     Postgres password.
-#   FEEDBOT_BASE_URL        https://app.feedbot.dev
-#   FEEDBOT_PUBLIC_URL      https://app.feedbot.dev
-#   FEEDBOT_PUBLIC_DOMAIN   app.feedbot.dev    (used in Traefik Host rules below)
+#   FEEDBOT_BASE_URL        e.g. https://app.feedbot.dev
+#   FEEDBOT_PUBLIC_URL      same as FEEDBOT_BASE_URL (browser-visible).
 #
-# OPTIONAL ENV VARS:
+# OPTIONAL ENV VARS
+#   FEEDBOT_VERSION         image tag (default: latest)
 #   EMAIL_BACKEND=smtp + SMTP_*  for magic-link delivery
-#   FEEDBOT_TELEMETRY_ENDPOINT   if you ever wire up self-host telemetry
+#   FEEDBOT_TELEGRAM_BOT_TOKEN   to enable the bot (also activate the
+#                                `bot` profile in your platform).
 # ─────────────────────────────────────────────────────────────────────
 
 name: feedbot
@@ -48,21 +67,41 @@ x-defaults: &defaults
     - feedbot
 
 services:
+  # ── Edge: the only public-facing service ─────────────────────────
+  # Coolify / Dokploy detect SERVICE_FQDN_WEB_80 and auto-generate
+  # the proxy + TLS config to forward the public domain to web:80.
+  # On other platforms, point the ingress at this service's port 80.
+  #
+  # The service is named `web` (not `proxy`) because that's the name
+  # most self-hosting UIs surface as "the public app" — keeping it
+  # familiar avoids confusion when a user looks for a Domain field.
   web:
+    <<: *defaults
+    image: caddy:2-alpine
+    labels:
+      com.feedbot.installer: "true"
+      com.feedbot.role: "edge"
+    environment:
+      # Coolify / Dokploy magic var — platform replaces this with the
+      # real FQDN at deploy time. On platforms without magic vars it's
+      # ignored; the platform's own ingress config drives routing.
+      SERVICE_FQDN_WEB_80: ""
+    volumes:
+      - ./caddy/Caddyfile.cloud:/etc/caddy/Caddyfile:ro
+    expose:
+      - "80"
+    depends_on:
+      api:
+        condition: service_started
+      spa:
+        condition: service_started
+
+  spa:
     <<: *defaults
     image: ghcr.io/helderpgoncalves/feedbot-web:${FEEDBOT_VERSION:-latest}
     labels:
       com.feedbot.installer: "true"
-      com.feedbot.role: "web"
-      # Traefik (Coolify) routes all non-/api, non-/mcp traffic to nginx.
-      # Ordering: api router is matched first via priority below.
-      traefik.enable: "true"
-      traefik.http.routers.feedbot-web.rule: "Host(`${FEEDBOT_PUBLIC_DOMAIN}`)"
-      traefik.http.routers.feedbot-web.entrypoints: "websecure"
-      traefik.http.routers.feedbot-web.tls: "true"
-      traefik.http.routers.feedbot-web.tls.certresolver: "letsencrypt"
-      traefik.http.routers.feedbot-web.priority: "1"
-      traefik.http.services.feedbot-web.loadbalancer.server.port: "80"
+      com.feedbot.role: "spa"
     environment:
       FEEDBOT_PRODUCT_NAME: ${FEEDBOT_PRODUCT_NAME:-Feedbot}
       FEEDBOT_PUBLIC_URL: ${FEEDBOT_PUBLIC_URL}
@@ -72,7 +111,6 @@ services:
       FEEDBOT_BILLING_ENABLED: ${FEEDBOT_BILLING_ENABLED:-false}
       FEEDBOT_DEPLOYMENT: cloud
       FEEDBOT_BUILD_SHA: ${FEEDBOT_BUILD_SHA:-}
-    expose: ["80"]
     depends_on:
       api:
         condition: service_started
@@ -83,20 +121,6 @@ services:
     labels:
       com.feedbot.installer: "true"
       com.feedbot.role: "api"
-      # Higher priority than web so /api/* and /mcp/* are matched first.
-      # PathPrefix in Traefik covers both the bare path and /path/...
-      traefik.enable: "true"
-      traefik.http.routers.feedbot-api.rule: "Host(`${FEEDBOT_PUBLIC_DOMAIN}`) && (PathPrefix(`/api`) || PathPrefix(`/mcp`) || Path(`/healthz`))"
-      traefik.http.routers.feedbot-api.entrypoints: "websecure"
-      traefik.http.routers.feedbot-api.tls: "true"
-      traefik.http.routers.feedbot-api.tls.certresolver: "letsencrypt"
-      traefik.http.routers.feedbot-api.priority: "10"
-      # Strip /api/ prefix before forwarding to FastAPI (which mounts at /v1/*).
-      # /mcp/* and /healthz pass through untouched.
-      traefik.http.middlewares.feedbot-api-strip.stripprefix.prefixes: "/api"
-      traefik.http.middlewares.feedbot-api-strip.stripprefix.forceslash: "false"
-      traefik.http.routers.feedbot-api.middlewares: "feedbot-api-strip"
-      traefik.http.services.feedbot-api.loadbalancer.server.port: "8000"
     environment:
       DATABASE_URL: "postgresql+asyncpg://feedbot:${FEEDBOT_DB_PASSWORD}@db:5432/feedbot"
       FEEDBOT_BASE_URL: ${FEEDBOT_BASE_URL}
@@ -109,7 +133,6 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
-    expose: ["8000"]
     depends_on:
       db:
         condition: service_healthy
@@ -132,16 +155,14 @@ services:
       POSTGRES_DB: feedbot
     volumes:
       - db_data:/var/lib/postgresql/data
-    expose: ["5432"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U feedbot"]
       interval: 5s
       timeout: 3s
       retries: 10
 
-  # Bot stays opt-in. To enable: set FEEDBOT_TELEGRAM_BOT_TOKEN in
-  # Coolify env vars and deploy with the `bot` profile activated
-  # (Coolify → Application → Compose Profiles → add "bot").
+  # Bot stays opt-in. To enable: set FEEDBOT_TELEGRAM_BOT_TOKEN in the
+  # platform env vars and activate the `bot` compose profile.
   bot:
     <<: *defaults
     profiles: ["bot"]
