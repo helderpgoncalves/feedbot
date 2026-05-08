@@ -144,6 +144,45 @@
 			"dns_server_ip": "This server",
 			"dns_match": "Looks good — DNS points at this server.",
 			"dns_mismatch": "Heads-up: DNS doesn't resolve to this server's outbound IP. This may just be propagation lag — proceed if you've configured the record recently."
+		},
+		"system": {
+			"title": "System",
+			"subtitle": "Service health, automatic startup, and telemetry.",
+			"manage": "Manage",
+			"tabs": {
+				"status": "Status",
+				"autostart": "Auto-start",
+				"telemetry": "Telemetry"
+			},
+			"restart_all": "Restart all",
+			"restart_toast": "Restarting {{target}}…",
+			"restart_failed_toast": "Restart failed: {{message}}",
+			"status": {
+				"ok": "Healthy",
+				"degraded": "Degraded",
+				"title": "Services",
+				"subtitle": "Build {{version}}",
+				"empty": "No services found. Has docker compose started yet?",
+				"error_title": "docker compose ps failed"
+			},
+			"autostart": {
+				"title": "Auto-start",
+				"subtitle": "Detected platform: {{platform}}",
+				"enable_label": "Start Feedbot at boot",
+				"unsupported_title": "Manual setup required",
+				"unsupported_body": "This platform does not have a managed init system Feedbot can drive automatically.",
+				"enabled_toast": "Auto-start enabled.",
+				"disabled_toast": "Auto-start disabled.",
+				"failed_toast": "Toggle failed: {{message}}"
+			},
+			"telemetry": {
+				"title": "Telemetry",
+				"subtitle": "Opt-in anonymous usage events to help guide development.",
+				"label": "Send anonymous telemetry",
+				"privacy_note": "Off by default. We never include feedback content, user identifiers, or any tenant data — only counters and performance timings.",
+				"enabled_toast": "Telemetry enabled.",
+				"disabled_toast": "Telemetry disabled."
+			}
 		}
 	},
 	"auth": {

@@ -831,6 +831,82 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/system/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Health snapshot from ``docker compose ps`` (owner only). */
+        get: operations["get_status_v1_admin_system_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/system/restart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restart all services or one (owner only). */
+        post: operations["post_restart_v1_admin_system_restart_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/system/autostart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read autostart state (owner only). */
+        get: operations["get_autostart_v1_admin_system_autostart_get"];
+        put?: never;
+        /** Enable or disable autostart (owner only). */
+        post: operations["post_autostart_v1_admin_system_autostart_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/system/telemetry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Current telemetry opt-in state (owner only). */
+        get: operations["get_telemetry_v1_admin_system_telemetry_get"];
+        put?: never;
+        /**
+         * Toggle telemetry opt-in (owner only).
+         * @description Persist the toggle and audit it.
+         *
+         *     Telemetry is opt-in (default off). We don't restart any service
+         *     — the flag is read at telemetry-event-emit time, not boot.
+         */
+        post: operations["post_telemetry_v1_admin_system_telemetry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/internal/ingest": {
         parameters: {
             query?: never;
@@ -1033,6 +1109,27 @@ export interface components {
             last_used_at: string | null;
             /** Revoked At */
             revoked_at: string | null;
+        };
+        /**
+         * AutostartStatusOut
+         * @description Result of ``GET /v1/admin/system/autostart``.
+         *
+         *     ``platform`` is the orchestrator's enum value
+         *     (linux-systemd, linux-other, macos-launchd, unknown).
+         *     ``unit_path`` is the systemd unit / launchd plist path or
+         *     ``None`` on unsupported platforms; ``manual_instructions`` is
+         *     set when the platform doesn't support auto-managed startup so
+         *     the UI can render copy-paste init snippets.
+         */
+        AutostartStatusOut: {
+            /** Platform */
+            platform: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Unit Path */
+            unit_path: string | null;
+            /** Manual Instructions */
+            manual_instructions?: string | null;
         };
         /**
          * BotChatOut
@@ -1949,6 +2046,64 @@ export interface components {
             };
             /** Total */
             total: number;
+        };
+        /**
+         * SystemRestartIn
+         * @description Body for ``POST /v1/admin/system/restart``.
+         *
+         *     ``service`` is one of the known compose services (or ``None``
+         *     to restart everything). The orchestrator validates against
+         *     ``compose.KNOWN_SERVICES`` before shelling out.
+         */
+        SystemRestartIn: {
+            /** Service */
+            service?: string | null;
+        };
+        /**
+         * SystemServiceOut
+         * @description One service row from ``GET /v1/admin/system/status``.
+         *
+         *     State strings come straight from ``docker compose ps`` (running,
+         *     exited, restarting, paused, etc.); we don't normalise so
+         *     operators see the same vocabulary they get from the CLI.
+         */
+        SystemServiceOut: {
+            /** Name */
+            name: string;
+            /** State */
+            state: string;
+            /** Image */
+            image?: string | null;
+            /** Status */
+            status?: string | null;
+        };
+        /**
+         * SystemStatusOut
+         * @description High-level health snapshot.
+         *
+         *     ``ok=True`` when every known service is in ``running`` state.
+         *     The ``error`` field carries the raw compose error if the ``ps``
+         *     invocation fails — UI surfaces it so the operator can debug.
+         */
+        SystemStatusOut: {
+            /** Ok */
+            ok: boolean;
+            /** Version */
+            version: string;
+            /** Services */
+            services: components["schemas"]["SystemServiceOut"][];
+            /** Error */
+            error?: string | null;
+        };
+        /** TelemetryConfigIn */
+        TelemetryConfigIn: {
+            /** Enabled */
+            enabled: boolean;
+        };
+        /** TelemetryConfigOut */
+        TelemetryConfigOut: {
+            /** Enabled */
+            enabled: boolean;
         };
         /** TenantUserOut */
         TenantUserOut: {
@@ -3827,6 +3982,163 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProxyDnsCheckOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_status_v1_admin_system_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemStatusOut"];
+                };
+            };
+        };
+    };
+    post_restart_v1_admin_system_restart_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SystemRestartIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_autostart_v1_admin_system_autostart_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutostartStatusOut"];
+                };
+            };
+        };
+    };
+    post_autostart_v1_admin_system_autostart_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TelemetryConfigIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutostartStatusOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_telemetry_v1_admin_system_telemetry_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TelemetryConfigOut"];
+                };
+            };
+        };
+    };
+    post_telemetry_v1_admin_system_telemetry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TelemetryConfigIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TelemetryConfigOut"];
                 };
             };
             /** @description Validation Error */

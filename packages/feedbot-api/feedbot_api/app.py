@@ -35,6 +35,7 @@ from feedbot_api.routers import (
     v1_admin_bot,
     v1_admin_email,
     v1_admin_proxy,
+    v1_admin_system,
     v1_auth,
     v1_feedbacks,
     v1_llm,
@@ -92,6 +93,7 @@ app.include_router(v1_team.router)
 app.include_router(v1_admin_email.router)
 app.include_router(v1_admin_bot.router)
 app.include_router(v1_admin_proxy.router)
+app.include_router(v1_admin_system.router)
 app.include_router(internal.router)
 
 # Streamable-HTTP MCP server. The sub-app handles JSON-RPC; our auth middleware

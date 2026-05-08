@@ -19,7 +19,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, createFileRoute, redirect } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
-import { Globe, Mail, Send } from 'lucide-react';
+import { Globe, Mail, Send, ServerCog } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -38,6 +38,7 @@ import type { components } from '@/types/api';
 type EmailConfigOut = components['schemas']['EmailConfigOut'];
 type BotConfigOut = components['schemas']['BotConfigOut'];
 type ProxyConfigOut = components['schemas']['ProxyConfigOut'];
+type SystemStatusOut = components['schemas']['SystemStatusOut'];
 
 export const Route = createFileRoute('/(authed)/settings')({
 	beforeLoad: async ({ context }) => {
@@ -79,6 +80,14 @@ function SettingsIndex() {
 		queryFn: async () => {
 			const data = await unwrap(api.GET('/v1/admin/proxy/config'));
 			return data as unknown as ProxyConfigOut;
+		},
+	});
+
+	const sys = useQuery({
+		queryKey: ['admin', 'system', 'status'] as const,
+		queryFn: async () => {
+			const data = await unwrap(api.GET('/v1/admin/system/status'));
+			return data as unknown as SystemStatusOut;
 		},
 	});
 
@@ -147,6 +156,26 @@ function SettingsIndex() {
 					}
 					href="/settings/proxy"
 					linkLabel={t('settings.proxy.manage')}
+				/>
+				<SectionCard
+					icon={<ServerCog className="size-5" />}
+					title={t('settings.system.title')}
+					description={t('settings.system.subtitle')}
+					status={
+						sys.isLoading ? (
+							<Skeleton className="h-5 w-16" />
+						) : sys.data?.ok ? (
+							<Badge variant="success">
+								{t('settings.system.status.ok')}
+							</Badge>
+						) : (
+							<Badge variant="destructive">
+								{t('settings.system.status.degraded')}
+							</Badge>
+						)
+					}
+					href="/settings/system"
+					linkLabel={t('settings.system.manage')}
 				/>
 			</div>
 		</div>

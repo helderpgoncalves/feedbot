@@ -620,3 +620,67 @@ class ProxyDnsCheckOut(BaseModel):
     server_ip: str | None
     matches: bool
     error: str | None = None
+
+
+class SystemServiceOut(BaseModel):
+    """One service row from ``GET /v1/admin/system/status``.
+
+    State strings come straight from ``docker compose ps`` (running,
+    exited, restarting, paused, etc.); we don't normalise so
+    operators see the same vocabulary they get from the CLI.
+    """
+
+    name: str
+    state: str
+    image: str | None = None
+    status: str | None = None
+
+
+class SystemStatusOut(BaseModel):
+    """High-level health snapshot.
+
+    ``ok=True`` when every known service is in ``running`` state.
+    The ``error`` field carries the raw compose error if the ``ps``
+    invocation fails — UI surfaces it so the operator can debug.
+    """
+
+    ok: bool
+    version: str
+    services: list[SystemServiceOut]
+    error: str | None = None
+
+
+class SystemRestartIn(BaseModel):
+    """Body for ``POST /v1/admin/system/restart``.
+
+    ``service`` is one of the known compose services (or ``None``
+    to restart everything). The orchestrator validates against
+    ``compose.KNOWN_SERVICES`` before shelling out.
+    """
+
+    service: str | None = Field(default=None, max_length=32)
+
+
+class AutostartStatusOut(BaseModel):
+    """Result of ``GET /v1/admin/system/autostart``.
+
+    ``platform`` is the orchestrator's enum value
+    (linux-systemd, linux-other, macos-launchd, unknown).
+    ``unit_path`` is the systemd unit / launchd plist path or
+    ``None`` on unsupported platforms; ``manual_instructions`` is
+    set when the platform doesn't support auto-managed startup so
+    the UI can render copy-paste init snippets.
+    """
+
+    platform: str
+    enabled: bool
+    unit_path: str | None
+    manual_instructions: str | None = None
+
+
+class TelemetryConfigOut(BaseModel):
+    enabled: bool
+
+
+class TelemetryConfigIn(BaseModel):
+    enabled: bool
