@@ -20,25 +20,38 @@ ENV VITE_BUILD_SHA=${BUILD_SHA}
 RUN pnpm build
 
 # ── Runtime stage ────────────────────────────────────────────────────────────
-FROM caddy:2-alpine AS runner
-WORKDIR /srv
+# Plain nginx serving the SPA. Reverse-proxy responsibilities (routing
+# /api/* and /mcp/* to feedbot-api) live in the *external* Caddy at
+# ../caddy/ — see the root docker-compose.yml. This image is now a
+# pure static-asset server, deployable behind anything (Caddy, Traefik,
+# Coolify, Cloudflare Pages, etc.).
+FROM nginx:alpine AS runner
 
-COPY --from=builder /app/dist /srv
-COPY Caddyfile /etc/caddy/Caddyfile
+# Replace the default site with ours. Static config — no envsubst on
+# this file because nginx doesn't need anything templated.
+COPY nginx.conf.template /etc/nginx/conf.d/default.conf
 
-# Default upstream for self-host docker-compose; overridable at runtime.
-ENV FEEDBOT_API_UPSTREAM="http://api:8000" \
-	FEEDBOT_PRODUCT_NAME="Feedbot" \
-	FEEDBOT_PUBLIC_URL="" \
-	FEEDBOT_MCP_PUBLIC_URL="" \
-	FEEDBOT_TELEGRAM_BOT_USERNAME="" \
-	FEEDBOT_ALLOW_SIGNUP="false" \
-	FEEDBOT_DEPLOYMENT="self-host" \
-	FEEDBOT_BUILD_SHA=""
+# Built SPA bundle.
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Runtime config templating: regenerates /config.json from env vars
+# every time the container starts. Self-hosters edit env in their
+# orchestrator (compose, Coolify, k8s) and `restart` — no rebuild.
+COPY entrypoint.sh /docker-entrypoint.d/30-feedbot-config.sh
+RUN chmod +x /docker-entrypoint.d/30-feedbot-config.sh
+
+# Default values rendered into config.json when the container boots.
+# All overridable at runtime; the orchestrator passes real values.
+ENV FEEDBOT_PRODUCT_NAME="Feedbot" \
+    FEEDBOT_PUBLIC_URL="" \
+    FEEDBOT_MCP_PUBLIC_URL="" \
+    FEEDBOT_TELEGRAM_BOT_USERNAME="" \
+    FEEDBOT_ALLOW_SIGNUP="false" \
+    FEEDBOT_BILLING_ENABLED="false" \
+    FEEDBOT_DEPLOYMENT="self-host" \
+    FEEDBOT_BUILD_SHA=""
 
 EXPOSE 80
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 	CMD wget -qO- http://127.0.0.1/config.json >/dev/null || exit 1
-
-CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]

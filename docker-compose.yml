@@ -1,35 +1,93 @@
+# ─────────────────────────────────────────────────────────────────────
+# Feedbot — local dev / self-host stack.
+#
+# Topology:
+#   caddy (only one with host ports) → web   (nginx serves dist/)
+#                                    → api   (uvicorn + MCP at /mcp/)
+#                                    → bot   (Telegram, opt-in profile)
+#                                    → db    (postgres)
+#
+# All inter-service traffic stays on the internal `feedbot_net` Docker
+# network. caddy is the only public face. By default it binds to
+# 127.0.0.1 (private — same machine only); set FEEDBOT_BIND_HOST=0.0.0.0
+# in your .env to expose on the LAN/internet.
+# ─────────────────────────────────────────────────────────────────────
+
+name: feedbot
+
+x-defaults: &defaults
+  restart: unless-stopped
+  init: true
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+  networks:
+    - feedbot
+
 services:
-  db:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: feedbot
-      POSTGRES_PASSWORD: feedbot
-      POSTGRES_DB: feedbot
+  caddy:
+    <<: *defaults
+    image: caddy:2-alpine
+    labels:
+      com.feedbot.installer: "true"
+      com.feedbot.role: "proxy"
+    ports:
+      # Default 127.0.0.1 = private to this machine. Override
+      # FEEDBOT_BIND_HOST=0.0.0.0 for server installs.
+      - "${FEEDBOT_BIND_HOST:-127.0.0.1}:${FEEDBOT_HTTP_PORT:-80}:80"
+      - "${FEEDBOT_BIND_HOST:-127.0.0.1}:${FEEDBOT_HTTPS_PORT:-443}:443"
     volumes:
-      - db_data:/var/lib/postgresql/data
-    # No port published by default to avoid clashing with a host Postgres.
-    # Add `-p 5432:5432` via docker-compose.override.yml if you need direct access.
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_started
+      web:
+        condition: service_started
+
+  web:
+    <<: *defaults
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    labels:
+      com.feedbot.installer: "true"
+      com.feedbot.role: "web"
+    environment:
+      FEEDBOT_PRODUCT_NAME: ${FEEDBOT_PRODUCT_NAME:-Feedbot}
+      FEEDBOT_PUBLIC_URL: ${FEEDBOT_PUBLIC_URL:-http://localhost}
+      FEEDBOT_MCP_PUBLIC_URL: ${FEEDBOT_MCP_PUBLIC_URL:-}
+      FEEDBOT_TELEGRAM_BOT_USERNAME: ${FEEDBOT_TELEGRAM_BOT_USERNAME:-}
+      FEEDBOT_ALLOW_SIGNUP: ${FEEDBOT_ALLOW_SIGNUP:-false}
+      FEEDBOT_BILLING_ENABLED: ${FEEDBOT_BILLING_ENABLED:-false}
+      FEEDBOT_DEPLOYMENT: ${FEEDBOT_DEPLOYMENT:-self-host}
+      FEEDBOT_BUILD_SHA: ${FEEDBOT_BUILD_SHA:-}
+    # No ports: caddy is the only thing the host can reach.
     expose:
-      - "5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U feedbot"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
+      - "80"
+    depends_on:
+      api:
+        condition: service_started
 
   api:
+    <<: *defaults
     build:
       context: .
       dockerfile: packages/feedbot-api/Dockerfile
+    labels:
+      com.feedbot.installer: "true"
+      com.feedbot.role: "api"
     env_file: .env
     environment:
       DATABASE_URL: postgresql+asyncpg://feedbot:feedbot@db:5432/feedbot
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     depends_on:
       db:
         condition: service_healthy
-    restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)"]
       interval: 15s
@@ -38,41 +96,46 @@ services:
       start_period: 20s
 
   bot:
+    <<: *defaults
     profiles: ["bot"]   # opt-in: docker compose --profile bot up
     build:
       context: .
       dockerfile: packages/feedbot-bot/Dockerfile
+    labels:
+      com.feedbot.installer: "true"
+      com.feedbot.role: "bot"
     env_file: .env
     environment:
       FEEDBOT_API_URL: http://api:8000
     depends_on:
       api:
         condition: service_started
-    restart: unless-stopped
 
-  web:
-    build:
-      context: ./apps/web
-      dockerfile: Dockerfile
+  db:
+    <<: *defaults
+    image: postgres:16-alpine
+    labels:
+      com.feedbot.installer: "true"
+      com.feedbot.role: "db"
     environment:
-      # Caddy proxies /api/* /mcp/* /login /setup to this upstream — same origin from the browser.
-      FEEDBOT_API_UPSTREAM: http://api:8000
-      # Runtime config rendered into /config.json on every request. Edit and restart, no rebuild.
-      FEEDBOT_PRODUCT_NAME: ${FEEDBOT_PRODUCT_NAME:-Feedbot}
-      FEEDBOT_PUBLIC_URL: ${FEEDBOT_PUBLIC_URL:-http://localhost:3000}
-      # Optional override for split-domain deploys (SPA + API on different
-      # hosts). Default empty — the SPA derives ${FEEDBOT_PUBLIC_URL}/mcp/.
-      FEEDBOT_MCP_PUBLIC_URL: ${FEEDBOT_MCP_PUBLIC_URL:-}
-      FEEDBOT_TELEGRAM_BOT_USERNAME: ${FEEDBOT_TELEGRAM_BOT_USERNAME:-}
-      FEEDBOT_ALLOW_SIGNUP: ${FEEDBOT_ALLOW_SIGNUP:-false}
-      FEEDBOT_DEPLOYMENT: ${FEEDBOT_DEPLOYMENT:-self-host}
-      FEEDBOT_BUILD_SHA: ${FEEDBOT_BUILD_SHA:-}
-    ports:
-      - "3000:80"
-    depends_on:
-      api:
-        condition: service_started
-    restart: unless-stopped
+      POSTGRES_USER: feedbot
+      POSTGRES_PASSWORD: feedbot
+      POSTGRES_DB: feedbot
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U feedbot"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+networks:
+  feedbot:
+    name: feedbot_net
 
 volumes:
   db_data:
+  caddy_data:
+  caddy_config:

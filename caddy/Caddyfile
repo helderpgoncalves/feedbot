@@ -1,0 +1,84 @@
+# ─────────────────────────────────────────────────────────────────────
+# Feedbot reverse proxy — single public face for the stack.
+#
+# This is the *only* container that binds host ports (80, 443). Web,
+# api, and db live on the internal Docker network and are unreachable
+# from outside.
+#
+# Two states:
+#   1. IP-only (default after install). Caddy serves on :80, no TLS.
+#      Reach Feedbot at http://<bind-host> or http://<server-ip>.
+#   2. Domain + TLS (configured later via the Settings UI in the
+#      dashboard, which calls the Caddy Admin API at :2019 to load a
+#      new config without restart).
+#
+# The Admin API on :2019 is bound to the loopback inside the container
+# (Caddy's default), and is *not* exposed to the host. Only the api
+# container reaches it via the internal Docker network — never the
+# browser.
+#
+# Reference: https://caddyserver.com/docs/caddyfile
+# ─────────────────────────────────────────────────────────────────────
+
+{
+	# Disable auto-HTTPS in IP-only mode. The dashboard's Settings UI
+	# replaces this whole config (via the Admin API) when the user
+	# adds a domain.
+	auto_https off
+
+	# Trust X-Forwarded-* from any reverse proxy that may be in front
+	# (Coolify Traefik, Cloudflare, nginx). Restricts to RFC 1918
+	# ranges so a public attacker can't spoof headers.
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+:80 {
+	encode gzip zstd
+
+	# ── /api/* → feedbot-api ───────────────────────────────────────
+	# The browser calls /api/v1/me; we strip /api and forward /v1/me
+	# to the api container. Same as the previous apps/web/Caddyfile
+	# behaviour — keeps the SPA's same-origin assumption.
+	@api path /api/* /api
+	handle @api {
+		uri strip_prefix /api
+		reverse_proxy api:8000 {
+			header_up Host {http.reverse_proxy.upstream.host}
+			header_up X-Real-IP {remote}
+			header_up X-Forwarded-For {remote}
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
+
+	# ── /mcp/* → feedbot-api ───────────────────────────────────────
+	# Streamable-HTTP MCP. Path-preserving; Bearer auth.
+	@mcp path /mcp /mcp/*
+	handle @mcp {
+		reverse_proxy api:8000
+	}
+
+	# ── /healthz → feedbot-api ─────────────────────────────────────
+	# Top-level health endpoint, useful for external probes.
+	@healthz path /healthz
+	handle @healthz {
+		reverse_proxy api:8000
+	}
+
+	# ── Everything else → web (SPA) ────────────────────────────────
+	# Including /config.json (templated at boot) and the SPA index.
+	handle {
+		reverse_proxy web:80
+	}
+
+	# Security headers. The web container also sets these, but Caddy
+	# is the actual edge — re-emit so /api responses also benefit.
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "interest-cohort=(), camera=(), microphone=(), geolocation=()"
+		Cross-Origin-Opener-Policy "same-origin"
+	}
+}

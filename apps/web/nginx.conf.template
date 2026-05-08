@@ -1,0 +1,86 @@
+# Feedbot web — static SPA serving via nginx.
+#
+# We do *not* reverse-proxy /api/* or /mcp/* here. The reverse proxy
+# (Caddy in the standard install, Traefik in Coolify, anything in
+# split-domain deploys) lives in front of *both* this nginx and the
+# feedbot-api container, and routes by path.
+#
+# Two responsibilities:
+#   1. Serve the built SPA from /usr/share/nginx/html with a sane
+#      cache policy (long-cache fingerprinted assets, no-cache html).
+#   2. Serve /config.json — runtime config templated from env vars by
+#      the entrypoint script. Self-hosters change docker-compose env
+#      and `restart`, never rebuild.
+
+server {
+    listen       80 default_server;
+    server_name  _;
+
+    root   /usr/share/nginx/html;
+    index  index.html;
+
+    # gzip everything textual.
+    gzip               on;
+    gzip_vary          on;
+    gzip_min_length    1024;
+    gzip_proxied       any;
+    gzip_types
+        text/plain
+        text/css
+        text/xml
+        application/javascript
+        application/json
+        application/xml
+        application/xml+rss
+        application/wasm
+        image/svg+xml;
+
+    # ── Runtime config ──────────────────────────────────────────────
+    # The entrypoint generates /usr/share/nginx/html/config.json from
+    # env vars at container start. Never cached.
+    location = /config.json {
+        add_header Cache-Control "no-store" always;
+        add_header Content-Type  "application/json" always;
+        try_files /config.json =404;
+    }
+
+    # ── Long-cache fingerprinted assets ─────────────────────────────
+    # Vite produces filenames like `index-Csg64hfB.js` whose hash is
+    # part of the URL — safe to cache for a year.
+    # Quoted to keep nginx's directive parser from interpreting {6,}
+    # as a directive group; `~*` is still a regex location.
+    location ~* "\.[0-9a-f]{6,}\.(css|js|woff2?|svg|png|jpg|jpeg|webp|avif|gif|ico|map)$" {
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        access_log off;
+        try_files $uri =404;
+    }
+
+    # ── No-cache HTML ───────────────────────────────────────────────
+    # index.html and any unfingerprinted html must always re-validate
+    # so deploys propagate without a hard refresh.
+    location ~* "\.html$" {
+        add_header Cache-Control "no-cache, must-revalidate" always;
+        try_files $uri =404;
+    }
+
+    # ── Security headers ────────────────────────────────────────────
+    # Match what the previous Caddy setup produced. The reverse proxy
+    # in front *should* re-add HSTS over HTTPS; we set the rest here
+    # so the SPA is hardened even when reached directly (debugging,
+    # split-origin deploys).
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options         "DENY" always;
+    add_header Referrer-Policy         "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy      "interest-cohort=(), camera=(), microphone=(), geolocation=()" always;
+    add_header Cross-Origin-Opener-Policy "same-origin" always;
+
+    # ── SPA fallback ────────────────────────────────────────────────
+    # Anything not matched above falls back to index.html so client-
+    # side routes (like /projects/foo) load the app.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Hide the default error pages (would expose nginx version etc.).
+    server_tokens off;
+}
