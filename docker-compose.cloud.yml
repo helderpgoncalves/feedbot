@@ -81,20 +81,21 @@ services:
     labels:
       com.feedbot.installer: "true"
       com.feedbot.role: "edge"
+      # Force the platform proxy to send traffic to port 80. The
+      # caddy image exposes 80, 443, and 2019 — without this label
+      # Traefik may auto-discover the wrong port and time out.
+      traefik.http.services.web.loadbalancer.server.port: "80"
     environment:
-      # Coolify / Dokploy magic var — platform replaces this with the
-      # real FQDN at deploy time. On platforms without magic vars it's
-      # ignored; the platform's own ingress config drives routing.
+      # Coolify / Dokploy magic var. The trailing _80 tells the
+      # platform which container port to route to.
       SERVICE_FQDN_WEB_80: ""
-    # Caddyfile lives in the compose itself (not a bind mount) so this
-    # file is the only artifact a platform needs to deploy. Coolify's
-    # "raw compose" mode and similar paste-and-deploy flows drop the
-    # rest of the repo, so external file references would 404.
+    # Caddyfile materialised from the compose file via the standard
+    # `configs:` block at the bottom — works on any compose-spec
+    # implementation (Docker Compose, Coolify, Dokploy, k8s via
+    # kompose). No external files; one-artifact deploy.
     configs:
       - source: caddyfile
         target: /etc/caddy/Caddyfile
-    expose:
-      - "80"
     depends_on:
       api:
         condition: service_started
@@ -191,27 +192,21 @@ volumes:
   db_data:
 
 # ── Caddyfile (inline) ───────────────────────────────────────────────
-# Mirror of caddy/Caddyfile.cloud. Inlined so the compose file is
-# self-contained — works on Coolify "raw compose" deploys, paste-only
-# UIs, and one-shot `docker compose up` runs.
+# Compose-spec `configs:` keep the deploy a single-file artifact
+# (no companion Caddyfile in the repo, no bind-mount paths to
+# resolve). Works on plain Docker Compose v2.20+, Coolify, Dokploy,
+# Kubernetes (via kompose), and Podman.
 configs:
   caddyfile:
     content: |
       {
-        # TLS lives at the platform edge. Caddy here is plain HTTP only.
         auto_https off
-        # Trust X-Forwarded-* from the platform proxy. Restricted to
-        # private ranges so a public attacker reaching :80 directly
-        # cannot spoof headers.
         servers {
           trusted_proxies static private_ranges
         }
       }
-
       :80 {
         encode gzip zstd
-
-        # /api/* → feedbot-api, with /api stripped before forwarding.
         @api path /api/* /api
         handle @api {
           uri strip_prefix /api
@@ -220,24 +215,17 @@ configs:
             header_up X-Real-IP {remote}
           }
         }
-
-        # /mcp, /mcp/* → feedbot-api, path-preserving (Streamable HTTP).
         @mcp path /mcp /mcp/*
         handle @mcp {
           reverse_proxy api:8000
         }
-
-        # /healthz → feedbot-api (top-level liveness probe).
         @healthz path /healthz
         handle @healthz {
           reverse_proxy api:8000
         }
-
-        # Everything else → spa (static SPA via nginx).
         handle {
           reverse_proxy spa:80
         }
-
         header {
           X-Content-Type-Options "nosniff"
           X-Frame-Options "DENY"
