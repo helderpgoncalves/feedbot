@@ -684,3 +684,39 @@ class TelemetryConfigOut(BaseModel):
 
 class TelemetryConfigIn(BaseModel):
     enabled: bool
+
+
+class BackupOut(BaseModel):
+    """One row of the backups directory listing."""
+
+    filename: str
+    size_bytes: int
+    created_at: datetime
+
+
+class UpdatesOut(BaseModel):
+    """Result of ``GET /v1/admin/system/updates``.
+
+    ``available`` is a server-side comparison so the SPA never has
+    to ship semver logic. ``error`` is set on registry failures —
+    the UI surfaces it as a soft warning rather than a hard fail
+    so an offline registry doesn't block the rest of the page.
+    """
+
+    current: str
+    latest: str | None
+    available: bool
+    error: str | None = None
+
+
+class UpdateApplyOut(BaseModel):
+    """Outcome of ``POST /v1/admin/system/updates/apply``.
+
+    ``ok=True`` means ``compose pull`` and ``compose up -d``
+    finished without error; the api container then runs
+    ``alembic upgrade head`` on its boot command before serving
+    again.
+    """
+
+    ok: bool
+    message: str | None = None

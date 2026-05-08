@@ -26,6 +26,7 @@ import logging
 import os
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import FileResponse
 from feedbot_core.models import User
 from feedbot_core.repos import update_instance_config
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,16 +37,21 @@ from feedbot_api.orchestrator import (
     Orchestrator,
     audit as orch_audit,
     autostart as orch_autostart,
+    backup as orch_backup,
     compose as orch_compose,
     settings as orch_settings,
+    updates as orch_updates,
 )
 from feedbot_api.schemas import (
     AutostartStatusOut,
+    BackupOut,
     SystemRestartIn,
     SystemServiceOut,
     SystemStatusOut,
     TelemetryConfigIn,
     TelemetryConfigOut,
+    UpdateApplyOut,
+    UpdatesOut,
 )
 
 log = logging.getLogger("feedbot.v1.admin.system")
@@ -268,3 +274,152 @@ async def post_telemetry(
         user_agent=client_user_agent(request),
     )
     return TelemetryConfigOut(enabled=body.enabled)
+
+
+# ── Backups ────────────────────────────────────────────────────────
+
+
+def _backup_to_out(rec: orch_backup.BackupRecord) -> BackupOut:
+    return BackupOut(
+        filename=rec.filename,
+        size_bytes=rec.size_bytes,
+        created_at=rec.created_at,
+    )
+
+
+@router.get(
+    "/backups",
+    response_model=list[BackupOut],
+    summary="List backup tarballs in <workdir>/backups (owner only).",
+)
+async def list_backups(_me: User = Depends(require_owner)) -> list[BackupOut]:
+    return [_backup_to_out(r) for r in orch_backup.list_backups()]
+
+
+@router.post(
+    "/backups",
+    response_model=BackupOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Run pg_dump and create a fresh tar.gz backup (owner only).",
+)
+async def create_backup(
+    request: Request,
+    me: User = Depends(require_owner),
+    session: AsyncSession = Depends(get_session),
+) -> BackupOut:
+    try:
+        rec = await orch_backup.create_backup()
+    except orch_backup.BackupError as exc:
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY, f"backup failed: {exc}"
+        ) from exc
+
+    # Audit so the operator has a paper trail of who pulled state
+    # off the box. The filename is non-secret (it's just a
+    # timestamp) so we record it verbatim.
+    await orch_audit.system_action(
+        session,
+        user_id=me.id,
+        tenant_id=me.tenant_id,
+        action="backup.create",
+        target=rec.filename,
+        ip=client_ip(request),
+        user_agent=client_user_agent(request),
+    )
+    return _backup_to_out(rec)
+
+
+@router.get(
+    "/backups/{filename}/download",
+    summary="Download a backup tarball (owner only).",
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": "Unknown filename or path traversal attempt."}
+    },
+)
+async def download_backup(
+    filename: str,
+    request: Request,
+    me: User = Depends(require_owner),
+    session: AsyncSession = Depends(get_session),
+):
+    """Stream the tarball as ``application/gzip``.
+
+    ``orch_backup.get_backup`` validates the filename matches our
+    naming pattern and contains no path separators — anything else
+    returns 404 instead of letting a directory-traversal attempt
+    surface as a 500.
+    """
+    rec = orch_backup.get_backup(filename)
+    if rec is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "backup not found")
+
+    await orch_audit.system_action(
+        session,
+        user_id=me.id,
+        tenant_id=me.tenant_id,
+        action="backup.download",
+        target=rec.filename,
+        ip=client_ip(request),
+        user_agent=client_user_agent(request),
+    )
+    return FileResponse(
+        rec.path,
+        media_type="application/gzip",
+        filename=rec.filename,
+    )
+
+
+# ── Updates ────────────────────────────────────────────────────────
+
+
+@router.get(
+    "/updates",
+    response_model=UpdatesOut,
+    summary="Compare the running version against GHCR's latest (owner only).",
+)
+async def get_updates(_me: User = Depends(require_owner)) -> UpdatesOut:
+    info = await orch_updates.check()
+    return UpdatesOut(
+        current=info.current,
+        latest=info.latest,
+        available=info.available,
+        error=info.error,
+    )
+
+
+@router.post(
+    "/updates/apply",
+    response_model=UpdateApplyOut,
+    summary="Pull the latest images and recreate containers (owner only).",
+    responses={
+        status.HTTP_502_BAD_GATEWAY: {
+            "description": "compose pull/up failed; see body for the underlying error."
+        },
+    },
+)
+async def post_apply_update(
+    request: Request,
+    me: User = Depends(require_owner),
+    session: AsyncSession = Depends(get_session),
+) -> UpdateApplyOut:
+    """Trigger a rolling update: pull, recreate, migrations on boot.
+
+    The api container's CMD is ``alembic upgrade head && uvicorn …``,
+    so we don't run migrations here — recreating the container is
+    enough. The route is best-effort: if pull or up fails we surface
+    a 502 with the compose error so the operator can debug.
+    """
+    orch = Orchestrator(
+        session,
+        user_id=me.id,
+        tenant_id=me.tenant_id,
+        ip=client_ip(request),
+        user_agent=client_user_agent(request),
+    )
+    try:
+        await orch.upgrade()
+    except orch_compose.ComposeError as exc:
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY, f"upgrade failed: {exc}"
+        ) from exc
+    return UpdateApplyOut(ok=True, message="containers recreated")

@@ -151,6 +151,8 @@
 			"manage": "Manage",
 			"tabs": {
 				"status": "Status",
+				"updates": "Updates",
+				"backups": "Backups",
 				"autostart": "Auto-start",
 				"telemetry": "Telemetry"
 			},
@@ -182,6 +184,34 @@
 				"privacy_note": "Off by default. We never include feedback content, user identifiers, or any tenant data — only counters and performance timings.",
 				"enabled_toast": "Telemetry enabled.",
 				"disabled_toast": "Telemetry disabled."
+			},
+			"updates": {
+				"title": "Updates",
+				"subtitle": "Compares the running build against the newest release on GHCR.",
+				"available": "Update available",
+				"up_to_date": "Up to date",
+				"unavailable": "Couldn't check",
+				"current": "Running",
+				"latest": "Latest",
+				"recheck": "Re-check",
+				"apply": "Update now",
+				"applying": "Updating…",
+				"applied_toast": "Update applied. Containers are recreating.",
+				"apply_failed_toast": "Update failed: {{message}}",
+				"check_failed": "Couldn't reach GHCR",
+				"confirm_title": "Update Feedbot now?",
+				"confirm_body": "Pulls the latest images and recreates the containers. The dashboard may be unavailable for a few seconds while the api restarts.",
+				"confirm_action": "Update now"
+			},
+			"backups": {
+				"title": "Backups",
+				"subtitle": "pg_dump + .env tarballs in the deployment workdir's backups/ folder.",
+				"create": "Create backup now",
+				"creating": "Creating…",
+				"created_toast": "{{filename}} created.",
+				"create_failed_toast": "Backup failed: {{message}}",
+				"empty": "No backups yet. Click \"Create backup now\" to make one.",
+				"download": "Download"
 			}
 		}
 	},

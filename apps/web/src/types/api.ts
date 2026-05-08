@@ -907,6 +907,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/system/backups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List backup tarballs in <workdir>/backups (owner only). */
+        get: operations["list_backups_v1_admin_system_backups_get"];
+        put?: never;
+        /** Run pg_dump and create a fresh tar.gz backup (owner only). */
+        post: operations["create_backup_v1_admin_system_backups_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/system/backups/{filename}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download a backup tarball (owner only).
+         * @description Stream the tarball as ``application/gzip``.
+         *
+         *     ``orch_backup.get_backup`` validates the filename matches our
+         *     naming pattern and contains no path separators — anything else
+         *     returns 404 instead of letting a directory-traversal attempt
+         *     surface as a 500.
+         */
+        get: operations["download_backup_v1_admin_system_backups__filename__download_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/system/updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Compare the running version against GHCR's latest (owner only). */
+        get: operations["get_updates_v1_admin_system_updates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/system/updates/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pull the latest images and recreate containers (owner only).
+         * @description Trigger a rolling update: pull, recreate, migrations on boot.
+         *
+         *     The api container's CMD is ``alembic upgrade head && uvicorn …``,
+         *     so we don't run migrations here — recreating the container is
+         *     enough. The route is best-effort: if pull or up fails we surface
+         *     a 502 with the compose error so the operator can debug.
+         */
+        post: operations["post_apply_update_v1_admin_system_updates_apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/internal/ingest": {
         parameters: {
             query?: never;
@@ -1130,6 +1215,21 @@ export interface components {
             unit_path: string | null;
             /** Manual Instructions */
             manual_instructions?: string | null;
+        };
+        /**
+         * BackupOut
+         * @description One row of the backups directory listing.
+         */
+        BackupOut: {
+            /** Filename */
+            filename: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /**
          * BotChatOut
@@ -2126,6 +2226,40 @@ export interface components {
         TenantUserPatchIn: {
             /** Role */
             role: string;
+        };
+        /**
+         * UpdateApplyOut
+         * @description Outcome of ``POST /v1/admin/system/updates/apply``.
+         *
+         *     ``ok=True`` means ``compose pull`` and ``compose up -d``
+         *     finished without error; the api container then runs
+         *     ``alembic upgrade head`` on its boot command before serving
+         *     again.
+         */
+        UpdateApplyOut: {
+            /** Ok */
+            ok: boolean;
+            /** Message */
+            message?: string | null;
+        };
+        /**
+         * UpdatesOut
+         * @description Result of ``GET /v1/admin/system/updates``.
+         *
+         *     ``available`` is a server-side comparison so the SPA never has
+         *     to ship semver logic. ``error`` is set on registry failures —
+         *     the UI surfaces it as a soft warning rather than a hard fail
+         *     so an offline registry doesn't block the rest of the page.
+         */
+        UpdatesOut: {
+            /** Current */
+            current: string;
+            /** Latest */
+            latest: string | null;
+            /** Available */
+            available: boolean;
+            /** Error */
+            error?: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -4149,6 +4283,131 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+        };
+    };
+    list_backups_v1_admin_system_backups_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupOut"][];
+                };
+            };
+        };
+    };
+    create_backup_v1_admin_system_backups_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupOut"];
+                };
+            };
+        };
+    };
+    download_backup_v1_admin_system_backups__filename__download_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                filename: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Unknown filename or path traversal attempt. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_updates_v1_admin_system_updates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdatesOut"];
+                };
+            };
+        };
+    };
+    post_apply_update_v1_admin_system_updates_apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateApplyOut"];
+                };
+            };
+            /** @description compose pull/up failed; see body for the underlying error. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

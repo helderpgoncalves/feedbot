@@ -47,7 +47,16 @@ from feedbot_core.llm.crypto import encrypt_key
 from feedbot_core.repos import update_instance_config
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from feedbot_api.orchestrator import audit, autostart, caddy, compose, env, settings
+from feedbot_api.orchestrator import (
+    audit,
+    autostart,
+    backup,
+    caddy,
+    compose,
+    env,
+    settings,
+    updates,
+)
 from feedbot_api.orchestrator.settings import InstanceSettings
 
 log = logging.getLogger("feedbot.orchestrator")
@@ -410,8 +419,10 @@ __all__ = [
     "is_self_host",
     "audit",
     "autostart",
+    "backup",
     "caddy",
     "compose",
     "env",
     "settings",
+    "updates",
 ]

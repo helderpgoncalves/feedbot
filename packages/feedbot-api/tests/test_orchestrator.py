@@ -22,7 +22,17 @@ from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
-from feedbot_api.orchestrator import Orchestrator, audit, autostart, caddy, compose, env, settings
+from feedbot_api.orchestrator import (
+    Orchestrator,
+    audit,
+    autostart,
+    backup,
+    caddy,
+    compose,
+    env,
+    settings,
+    updates,
+)
 from feedbot_core.llm.crypto import encrypt_key
 from feedbot_core.repos import update_instance_config
 
@@ -306,3 +316,73 @@ async def test_orchestrator_apply_proxy_calls_caddy(db_session, tmp_path, monkey
     )
     assert result.proxy.domain == "feedbot.example.com"
     assert result.proxy.https_enabled is True
+
+
+# ── backup ──────────────────────────────────────────────────────────
+
+
+def test_backup_get_backup_rejects_path_traversal(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("FEEDBOT_BACKUPS_DIR", str(tmp_path))
+    # Drop a real file so ``exists`` returns True for the canonical
+    # case; the traversal attempts must still be rejected.
+    (tmp_path / "feedbot-real.tar.gz").write_bytes(b"")
+    assert backup.get_backup("feedbot-real.tar.gz") is not None
+    assert backup.get_backup("../etc/passwd") is None
+    assert backup.get_backup("feedbot-../foo.tar.gz") is None
+    assert backup.get_backup("not-a-feedbot.tar.gz") is None
+    assert backup.get_backup(".feedbot-hidden.tar.gz") is None
+
+
+def test_backup_list_skips_non_matching_files(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("FEEDBOT_BACKUPS_DIR", str(tmp_path))
+    (tmp_path / "feedbot-1.tar.gz").write_bytes(b"x")
+    (tmp_path / "feedbot-2.tar.gz").write_bytes(b"yy")
+    (tmp_path / "stranger.txt").write_bytes(b"")
+    (tmp_path / "subdir").mkdir()
+
+    rows = backup.list_backups()
+    assert {r.filename for r in rows} == {"feedbot-1.tar.gz", "feedbot-2.tar.gz"}
+
+
+@pytest.mark.asyncio
+async def test_backup_create_writes_atomically(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("FEEDBOT_BACKUPS_DIR", str(tmp_path))
+    monkeypatch.setenv("FEEDBOT_ENV_FILE", str(tmp_path / ".env"))
+    (tmp_path / ".env").write_text("FEEDBOT_SECRET_KEY=x\n", encoding="utf-8")
+
+    async def fake_pg_dump(target: Path):
+        target.write_bytes(b"PG_DUMP_OUTPUT")
+
+    monkeypatch.setattr(backup, "_pg_dump_to_file", fake_pg_dump)
+
+    rec = await backup.create_backup()
+    assert rec.path.exists()
+    assert rec.filename.startswith("feedbot-") and rec.filename.endswith(".tar.gz")
+    # No leftover staging dirs.
+    leftovers = [p for p in tmp_path.iterdir() if p.name.startswith(".backup-")]
+    assert leftovers == []
+    # The tarball must hold both members.
+    import tarfile
+
+    with tarfile.open(rec.path, "r:gz") as tf:
+        names = set(tf.getnames())
+    assert "db.sql" in names
+    assert ".env" in names
+
+
+# ── updates ─────────────────────────────────────────────────────────
+
+
+def test_updates_is_release_tag_filters_floating_tags():
+    assert updates._is_release_tag("v1.2.3") is True
+    assert updates._is_release_tag("1.2.3") is True
+    assert updates._is_release_tag("v1.2.3-rc1") is True
+    assert updates._is_release_tag("latest") is False
+    assert updates._is_release_tag("main") is False
+    assert updates._is_release_tag("sha-abc1234") is False
+
+
+def test_updates_semver_key_orders_correctly():
+    assert updates._semver_key("v1.2.3") < updates._semver_key("v1.2.4")
+    assert updates._semver_key("v1.2.3") < updates._semver_key("v2.0.0")
+    assert updates._semver_key("v0.1.0") < updates._semver_key("v0.10.0")
