@@ -297,8 +297,12 @@ async def create_invite(
         project_id=project_id,
     )
 
+    # Public SPA route (apps/web/src/routes/(auth)/invites.$token.tsx).
+    # NOT the API path: in the cloud edge nginx strips /api before reaching
+    # the API container, and self-host Caddy routes /v1/* straight to the
+    # SPA — both setups need the SPA-side path here, not /v1/invites/preview.
     base = str(request.base_url).rstrip("/")
-    link = f"{base}/v1/invites/preview?token={invite.token}"
+    link = f"{base}/invites/{invite.token}"
     # Best-effort delivery; the invite row is durable.
     tenant = await session.get(Tenant, me.tenant_id)
     workspace_name = tenant.name if tenant else "Feedbot"

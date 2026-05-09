@@ -7,6 +7,10 @@ All notable changes to this project will be documented here. Format follows [Kee
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.1.0] - 2026-05-09
+
 ### Added — Cloud v1.0 (C0–C5)
 
 - **Cloud billing foundations (C0)** — `feedbot_core.billing/` with
@@ -106,6 +110,3 @@ All notable changes to this project will be documented here. Format follows [Kee
 ### Deprecated
 - The `feedbot-mcp` stdio package is deprecated in favor of `/mcp` HTTP. It still works for local-only setups but new deployments should use the HTTP endpoint.
 
-## [0.1.0] - planned
-
-Initial public release: capture (Telegram), triage (dashboard), resolve (MCP server).

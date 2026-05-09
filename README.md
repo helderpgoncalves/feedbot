@@ -5,11 +5,13 @@
 ### Turn community chat into a structured product backlog — and let any AI agent resolve it.
 
 [![CI](https://github.com/helderpgoncalves/feedbot/actions/workflows/ci.yml/badge.svg)](https://github.com/helderpgoncalves/feedbot/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/helderpgoncalves/feedbot?label=release&color=black)](https://github.com/helderpgoncalves/feedbot/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-black.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org)
 [![MCP-compatible](https://img.shields.io/badge/MCP-compatible-emerald.svg)](https://modelcontextprotocol.io)
 [![Coolify-deployable](https://img.shields.io/badge/Coolify-deployable-7c3aed.svg)](docs/DEPLOY-COOLIFY.md)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-orange.svg)](CONTRIBUTING.md)
+[![Discussions](https://img.shields.io/github/discussions/helderpgoncalves/feedbot?color=1a7f37)](https://github.com/helderpgoncalves/feedbot/discussions)
 
 **[Quickstart](#-quickstart-docker-5-minutes) · [Architecture](#how-it-works) · [Deploy](docs/DEPLOY-COOLIFY.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md)**
 

@@ -77,6 +77,30 @@ jobs:
           FEEDBOT_TEST_DATABASE_ADMIN_URL: postgresql://postgres:postgres@localhost:5432/postgres
         run: pytest packages/feedbot-api/tests -v
 
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Type-check
+        run: pnpm exec tsc --noEmit
+      - name: Test
+        run: pnpm test
+      - name: Build
+        run: pnpm build
+
   # Build all three images, multi-arch (amd64+arm64). On main pushes
   # and version tags, also push to GHCR for the installer to consume.
   # PRs do build-only (no push) to validate Dockerfiles.
