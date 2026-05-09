@@ -1,43 +1,57 @@
 # ─────────────────────────────────────────────────────────────────────
-# Feedbot — cloud deployment compose.
+# Feedbot — full cloud stack (one `docker compose up`, three domains).
 #
 # Designed to work on ANY self-hosting platform with zero
 # platform-specific labels:
-#   • Coolify  (uses SERVICE_FQDN_WEB_80 magic var below)
-#   • Dokploy  (same magic var convention)
+#   • Coolify  (point all three FQDNs at the `web` service)
+#   • Dokploy  (same)
 #   • Plain Docker behind nginx-proxy-manager / Traefik / Caddy
 #   • Kubernetes / Nomad / fly.io (point ingress at the `web` service)
 #
-# Topology — identical to the self-host stack:
+# Topology — one nginx edge does Host-routing for the three public
+# domains, then path-routes inside `app.<host>` between SPA and API:
 #
-#   <platform-edge> → web (caddy edge) → spa (nginx, static SPA)
-#                                      → api (FastAPI + MCP)
-#                                      → bot (Telegram, opt-in)
-#                                      → db  (postgres)
+#   <platform-edge>
+#       │
+#       ▼  Host:
+#   web (nginx edge, port 80)
+#       ├── feedbot.dev      → marketing  (Astro static)
+#       ├── app.feedbot.dev  → spa        (React static, served by nginx)
+#       │   ├── /api/*       → api        (FastAPI + MCP)
+#       │   ├── /mcp/*       → api
+#       │   └── /healthz     → api
+#       └── get.feedbot.dev  → installer  (install.sh + index.html)
 #
-# The `web` service is a small caddy that does same-origin path
-# routing (/api, /mcp, /healthz → api; everything else → spa). The
-# platform's edge proxy terminates TLS and forwards plain HTTP to it
-# on port 80, so the same caddy config powers both self-host (caddy
-# does TLS too) and cloud (platform does TLS).
+#   plus:
+#       db  (postgres) — only reachable inside the compose network
+#       bot (Telegram) — opt-in via the `bot` compose profile
 #
 # WHY THIS LAYOUT
-#   1. Zero coupling to the host's reverse proxy. No Traefik labels,
-#      no Caddy directives leaked into the compose. The platform sees
-#      one HTTP service (`web`) on port 80.
-#   2. Path routing lives in caddy/Caddyfile.cloud — one source of
-#      truth, the self-host caddy/Caddyfile mirrors it.
-#   3. The bot is the only container that talks to the outside world
-#      (Telegram), and it's opt-in via profile.
+#   1. One platform service to expose (`web`). Coolify/Dokploy/etc.
+#      see one HTTP service on port 80; you point all three FQDNs at
+#      it and the platform's edge proxy handles TLS termination.
+#   2. Three image roles (marketing, spa, installer) all run nginx
+#      so operators learn one config language across the stack.
+#   3. The bot is the only container that egresses to the internet
+#      (Telegram) and is opt-in.
 #
-# DEPLOY
+# DEPLOY (Coolify / Dokploy)
 #   1. Point your platform at this repo, branch main.
 #   2. Pick `docker-compose.cloud.yml` as the compose file.
 #   3. Set the env vars in REQUIRED ENV VARS below.
-#   4. On Coolify / Dokploy: set the public domain on the `web`
-#      service. Magic-var platforms auto-issue a Let's Encrypt cert
-#      and route traffic to web:80.
-#   5. Deploy.
+#   4. On the `web` service, add THREE domains: feedbot.dev,
+#      app.feedbot.dev, get.feedbot.dev. The platform issues one
+#      Let's Encrypt cert per FQDN and routes traffic to web:80.
+#   5. Deploy. First boot pulls the registry images and (for
+#      marketing/installer) builds them locally from this repo.
+#
+# DEPLOY (plain VM with docker)
+#   The compose has no TLS by itself — terminate TLS in front of
+#   `web:80`. Easiest options:
+#       • nginx-proxy-manager  (UI, includes Let's Encrypt)
+#       • caddy reverse_proxy  (one-line per FQDN)
+#       • cloudflared tunnel   (no public IP needed)
+#   See docs/DEPLOY-COOLIFY.md for the full walk-through.
 #
 # REQUIRED ENV VARS
 #   FEEDBOT_SECRET_KEY      48-byte base64; rotate via `feedbot rotate-secret-key`.
@@ -45,12 +59,16 @@
 #   FEEDBOT_DB_PASSWORD     Postgres password.
 #   FEEDBOT_BASE_URL        e.g. https://app.feedbot.dev
 #   FEEDBOT_PUBLIC_URL      same as FEEDBOT_BASE_URL (browser-visible).
+#   FEEDBOT_MARKETING_HOST  e.g. feedbot.dev       (default in compose)
+#   FEEDBOT_APP_HOST        e.g. app.feedbot.dev   (default in compose)
+#   FEEDBOT_INSTALLER_HOST  e.g. get.feedbot.dev   (default in compose)
 #
 # OPTIONAL ENV VARS
-#   FEEDBOT_VERSION         image tag (default: latest)
-#   EMAIL_BACKEND=smtp + SMTP_*  for magic-link delivery
-#   FEEDBOT_TELEGRAM_BOT_TOKEN   to enable the bot (also activate the
-#                                `bot` profile in your platform).
+#   FEEDBOT_VERSION                image tag for spa/api/bot (default: latest)
+#   EMAIL_BACKEND=smtp + SMTP_*    for magic-link delivery
+#   FEEDBOT_TELEGRAM_BOT_TOKEN     to enable the bot (also `--profile bot`)
+#   FEEDBOT_BILLING_ENABLED        flip to true for commercial GA
+#   FEEDBOT_STRIPE_*               required when billing is on (see C2 docs)
 # ─────────────────────────────────────────────────────────────────────
 
 name: feedbot
@@ -84,21 +102,66 @@ services:
     # auto-discovery problem that caddy:2-alpine (80/443/2019) caused
     # under Coolify Traefik. Single exposed port = unambiguous backend.
     image: nginx:alpine
+    environment:
+      FEEDBOT_MARKETING_HOST: ${FEEDBOT_MARKETING_HOST:-feedbot.dev}
+      FEEDBOT_APP_HOST: ${FEEDBOT_APP_HOST:-app.feedbot.dev}
+      FEEDBOT_INSTALLER_HOST: ${FEEDBOT_INSTALLER_HOST:-get.feedbot.dev}
     # nginx config is written from the entrypoint via heredoc — works
     # on every container platform without bind mounts or compose-spec
     # configs (both of which Coolify's raw-compose path doesn't fully
     # support). One artifact, runs anywhere.
+    #
+    # Host-routing: one nginx, three domains, three upstream services.
+    # `default_server` catches anything that isn't one of the three
+    # configured domains and returns 404 — so a stray *.example.com
+    # CNAME doesn't accidentally serve content.
     command:
       - sh
       - -c
       - |
-        cat > /etc/nginx/conf.d/default.conf <<'NGINX'
-        upstream feedbot_api { server api:8000; }
-        upstream feedbot_spa { server spa:80; }
+        cat > /etc/nginx/conf.d/default.conf <<NGINX
+        upstream feedbot_api       { server api:8000; }
+        upstream feedbot_spa       { server spa:80; }
+        upstream feedbot_marketing { server marketing:80; }
+        upstream feedbot_installer { server installer:80; }
 
+        # Headers shared across every public vhost.
+        map \$$http_user_agent \$$is_shell_client {
+            default      0;
+            "~*curl"     1;
+            "~*wget"     1;
+            "~*fetch"    1;
+        }
+
+        # Catch-all for unrecognised Host headers.
         server {
           listen 80 default_server;
           server_name _;
+          return 404;
+        }
+
+        # ── feedbot.dev — marketing site ─────────────────────────────
+        server {
+          listen 80;
+          server_name ${FEEDBOT_MARKETING_HOST:-feedbot.dev};
+
+          add_header X-Content-Type-Options "nosniff" always;
+          add_header X-Frame-Options "DENY" always;
+          add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+          location / {
+            proxy_pass http://feedbot_marketing;
+            proxy_set_header Host \$$host;
+            proxy_set_header X-Real-IP \$$remote_addr;
+            proxy_set_header X-Forwarded-For \$$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto \$$scheme;
+          }
+        }
+
+        # ── app.feedbot.dev — cloud SaaS (SPA + API + MCP) ───────────
+        server {
+          listen 80;
+          server_name ${FEEDBOT_APP_HOST:-app.feedbot.dev};
 
           gzip on;
           gzip_types text/plain text/css application/javascript application/json image/svg+xml;
@@ -112,12 +175,12 @@ services:
 
           # /api/* -> api, with /api stripped
           location /api/ {
-            rewrite ^/api/(.*)$$ /$$1 break;
+            rewrite ^/api/(.*)\$$ /\$$1 break;
             proxy_pass http://feedbot_api;
-            proxy_set_header Host $$host;
-            proxy_set_header X-Real-IP $$remote_addr;
-            proxy_set_header X-Forwarded-For $$proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $$scheme;
+            proxy_set_header Host \$$host;
+            proxy_set_header X-Real-IP \$$remote_addr;
+            proxy_set_header X-Forwarded-For \$$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto \$$scheme;
           }
 
           # /mcp, /mcp/* -> api, path-preserving
@@ -127,13 +190,33 @@ services:
           # /healthz -> api
           location = /healthz { proxy_pass http://feedbot_api; }
 
-          # everything else -> SPA
+          # everything else -> SPA (config.json, static, react routes)
           location / {
             proxy_pass http://feedbot_spa;
-            proxy_set_header Host $$host;
-            proxy_set_header X-Real-IP $$remote_addr;
-            proxy_set_header X-Forwarded-For $$proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $$scheme;
+            proxy_set_header Host \$$host;
+            proxy_set_header X-Real-IP \$$remote_addr;
+            proxy_set_header X-Forwarded-For \$$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto \$$scheme;
+          }
+        }
+
+        # ── get.feedbot.dev — installer one-liner ────────────────────
+        # The installer container itself rewrites curl/wget User-Agents
+        # to /install.sh, so the edge just proxies through verbatim.
+        server {
+          listen 80;
+          server_name ${FEEDBOT_INSTALLER_HOST:-get.feedbot.dev};
+
+          add_header X-Content-Type-Options "nosniff" always;
+          add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+          location / {
+            proxy_pass http://feedbot_installer;
+            proxy_set_header Host \$$host;
+            proxy_set_header User-Agent \$$http_user_agent;
+            proxy_set_header X-Real-IP \$$remote_addr;
+            proxy_set_header X-Forwarded-For \$$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto \$$scheme;
           }
         }
         NGINX
@@ -142,6 +225,10 @@ services:
       api:
         condition: service_started
       spa:
+        condition: service_started
+      marketing:
+        condition: service_started
+      installer:
         condition: service_started
 
   spa:
@@ -213,6 +300,34 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  # ── Marketing site (feedbot.dev) ─────────────────────────────────
+  # Built from apps/marketing/. Astro+Starlight bundle baked into an
+  # nginx:alpine image that serves dist/ on port 80.
+  marketing:
+    <<: *defaults
+    build:
+      context: ./apps/marketing
+      dockerfile: Dockerfile
+    image: feedbot-marketing:${FEEDBOT_VERSION:-latest}
+    labels:
+      com.feedbot.installer: "true"
+      com.feedbot.role: "marketing"
+
+  # ── Installer host (get.feedbot.dev) ─────────────────────────────
+  # Builds install.sh + index.html from this repo. nginx maps the
+  # User-Agent so curl/wget always receive the shell script.
+  installer:
+    <<: *defaults
+    build:
+      # Build context is the repo root — apps/installer-host/build.sh
+      # needs `install.sh` from there to produce the static bundle.
+      context: .
+      dockerfile: apps/installer-host/Dockerfile
+    image: feedbot-installer:${FEEDBOT_VERSION:-latest}
+    labels:
+      com.feedbot.installer: "true"
+      com.feedbot.role: "installer"
 
   # Bot stays opt-in. To enable: set FEEDBOT_TELEGRAM_BOT_TOKEN in the
   # platform env vars and activate the `bot` compose profile.

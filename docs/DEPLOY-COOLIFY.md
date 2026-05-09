@@ -1,17 +1,22 @@
 ---
 title: Deploy on Coolify
-description: Run Feedbot on Coolify with TLS, automatic deploys, and a managed Postgres. Three Coolify Applications cover the full feedbot.dev stack — cloud SaaS, marketing site, and the install one-liner.
+description: One docker-compose.cloud.yml deploys the full feedbot.dev stack — cloud SaaS at app.feedbot.dev, marketing + docs at feedbot.dev, installer at get.feedbot.dev. TLS handled by Coolify's edge.
 ---
 
 # Deploy Feedbot to Coolify
 
-This guide walks you through deploying the **full feedbot.dev stack** on a single
-[Coolify](https://coolify.io/) instance: the cloud SaaS at `app.feedbot.dev`, the
-marketing site + docs at `feedbot.dev`, and the install one-liner endpoint at
-`get.feedbot.dev`. Estimated time: **35 minutes** end-to-end.
+Since Cloud v1.0, **one** `docker-compose.cloud.yml` runs the whole
+feedbot.dev stack: the cloud SaaS at `app.feedbot.dev`, the marketing
+site + docs at `feedbot.dev`, and the installer one-liner at
+`get.feedbot.dev`. The compose's edge nginx does Host-routing for the
+three FQDNs; Coolify's Traefik issues one Let's Encrypt cert per
+domain and forwards traffic to `web:80`. Estimated time: **20 minutes**
+end-to-end.
 
-Each subdomain is a separate Coolify **Application** so you can redeploy any of
-them independently.
+If you prefer the legacy "three Applications" layout (one per domain),
+each subdomain folder still works as a standalone Coolify Application —
+see the [legacy guide](#legacy-three-applications-layout) at the
+bottom.
 
 ---
 
@@ -23,22 +28,30 @@ them independently.
    │     feedbot.dev          app.feedbot.dev      get.feedbot.dev│
    │     ────────────         ─────────────────    ──────────────│
    │     Marketing +          Cloud SaaS           install.sh    │
-   │     docs (Astro)         (api + web + db)     served plain  │
+   │     docs (Astro)         (api + spa + db)     served plain  │
    │                                                              │
-   │       ▼                       ▼                    ▼         │
+   │       ▲                       ▲                    ▲         │
+   │       │                       │                    │         │
+   │       └───── nginx web ───────┘────────────────────┘         │
+   │                  │                                            │
+   │                  ▼                                            │
    │   ┌──────────────────────────────────────────────────────┐   │
    │   │     Coolify Traefik (one TLS edge for all three)     │   │
    │   └──────────────────────────────────────────────────────┘   │
    └──────────────────────────────────────────────────────────────┘
 ```
 
-Three Coolify Applications:
+One Coolify Application, six containers:
 
-| Application | Source | Compose / type | Domain |
-|---|---|---|---|
-| `feedbot-app` | This repo (`feedbot-mono`) | Docker Compose: `docker-compose.cloud.yml` | `app.feedbot.dev` |
-| `feedbot-marketing` | This repo, `apps/marketing/` | Static Site (Astro build) | `feedbot.dev` |
-| `feedbot-installer` | Same repo or a separate one | Static Site (serves `install.sh`) | `get.feedbot.dev` |
+| Container | Role | Reachable as |
+|---|---|---|
+| `web` | nginx edge — Host-routes the three FQDNs | port 80 to platform |
+| `marketing` | Astro+Starlight static site | internal only |
+| `spa` | React SPA (nginx static + runtime config.json) | internal only |
+| `api` | FastAPI + MCP | internal only |
+| `installer` | nginx serving install.sh + index.html | internal only |
+| `db` | postgres 16 | internal only |
+| `bot` | Telegram adapter (opt-in `bot` profile) | egress only |
 
 ---
 
@@ -61,10 +74,14 @@ the `feedbot` repo. Coolify can now `git pull` on push.
 
 ---
 
-## 2. Application 1 — Cloud SaaS (`app.feedbot.dev`)
+## 2. The single Application — full stack on `docker-compose.cloud.yml`
 
-This is the live app: SPA + JSON API + Postgres. Deploys from
-`docker-compose.cloud.yml` in the repo root.
+This deploys the cloud SaaS + marketing + installer + DB in one go. The
+edge `web` service (nginx) Host-routes the three public FQDNs:
+
+- `feedbot.dev` → `marketing` container (Astro static)
+- `app.feedbot.dev` → `spa` container + `/api/*`, `/mcp/*`, `/healthz` to `api`
+- `get.feedbot.dev` → `installer` container (curl gets shell, browser gets HTML)
 
 **Create:**
 
@@ -72,7 +89,14 @@ This is the live app: SPA + JSON API + Postgres. Deploys from
 2. Repository: `feedbot-mono` · Branch: `main`.
 3. **Build Pack: Docker Compose**.
 4. **Compose Path:** `docker-compose.cloud.yml`.
-5. **Domain:** `https://app.feedbot.dev`.
+5. **Domains:** on the `web` service, add **all three** FQDNs:
+   - `https://feedbot.dev`
+   - `https://app.feedbot.dev`
+   - `https://get.feedbot.dev`
+
+   Coolify issues one Let's Encrypt cert per FQDN and points each at the
+   same `web:80` backend; the compose-internal nginx then routes by
+   `Host:` header.
 6. **Environment variables:** copy-paste the block below into the Application's
    Environment tab. Generate the three secrets first:
    ```bash
@@ -84,7 +108,9 @@ This is the live app: SPA + JSON API + Postgres. Deploys from
 
    Then in Coolify Environment → **Add Bulk**:
    ```env
-   FEEDBOT_PUBLIC_DOMAIN=app.feedbot.dev
+   FEEDBOT_MARKETING_HOST=feedbot.dev
+   FEEDBOT_APP_HOST=app.feedbot.dev
+   FEEDBOT_INSTALLER_HOST=get.feedbot.dev
    FEEDBOT_BASE_URL=https://app.feedbot.dev
    FEEDBOT_PUBLIC_URL=https://app.feedbot.dev
    FEEDBOT_SECRET_KEY=<paste from openssl>
@@ -101,13 +127,19 @@ This is the live app: SPA + JSON API + Postgres. Deploys from
    > Mark `FEEDBOT_SECRET_KEY`, `FEEDBOT_BOT_TOKEN`, `FEEDBOT_DB_PASSWORD` as
    > **Secret** in Coolify (the eye icon) so they don't show in the UI later.
 
-7. **Deploy**. First deploy takes ~3 minutes (image pulls + first compose up).
-   Coolify's Traefik issues the Let's Encrypt cert automatically.
+7. **Deploy**. First deploy takes ~5 minutes (image pulls + builds for
+   marketing/installer + first compose up). Coolify's Traefik issues
+   the three Let's Encrypt certs automatically.
 
 **Verify:**
-- `https://app.feedbot.dev/healthz` returns `{"ok": true, ...}`
-- `https://app.feedbot.dev/config.json` returns the runtime config
-- `https://app.feedbot.dev/` loads the SPA
+- `https://feedbot.dev/` loads the marketing landing page.
+- `https://feedbot.dev/pricing/` and `/legal/terms/` render Starlight pages.
+- `https://app.feedbot.dev/healthz` returns `{"ok": true, ...}`.
+- `https://app.feedbot.dev/config.json` returns the runtime config.
+- `https://app.feedbot.dev/` loads the SPA (redirects to `/signup` on a
+  fresh DB when `FEEDBOT_ALLOW_SIGNUP=true`).
+- `curl https://get.feedbot.dev/` returns the install.sh shell script.
+- A browser hitting `https://get.feedbot.dev/` sees the explainer HTML.
 
 **Configure SMTP (post-deploy):**
 
@@ -133,7 +165,14 @@ Save → Coolify recreates the api container → magic links work.
 
 ---
 
-## 3. Application 2 — Marketing + docs (`feedbot.dev`)
+## 3. Legacy: three Applications layout
+
+> Skip this section unless you have a specific reason to deploy each
+> domain as a separate Coolify Application (independent redeploys,
+> different teams owning each, etc.). The single-Application setup
+> above is simpler and the recommended path for ≥99% of operators.
+
+### Application 2 — Marketing + docs (`feedbot.dev`)
 
 The marketing site lives in `apps/marketing/` (Astro + Starlight). Coolify
 builds it as a static site.
@@ -151,7 +190,7 @@ The marketing build is pure static HTML so no env vars are required.
 
 ---
 
-## 4. Application 3 — Install one-liner (`get.feedbot.dev`)
+### Application 3 — Install one-liner (`get.feedbot.dev`)
 
 `get.feedbot.dev` serves `install.sh` so
 `curl -fsSL https://get.feedbot.dev | sh` works. The simplest setup is a
