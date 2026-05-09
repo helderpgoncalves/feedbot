@@ -11,6 +11,7 @@ import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { UsageBanner } from '@/components/billing/usage-banner';
 import { api, unwrap } from '@/lib/api';
 import { isAdmin, useMe } from '@/lib/auth';
 import { queryClient } from '@/lib/query-client';
@@ -49,6 +50,7 @@ function ProjectsPage() {
 
 	return (
 		<div className="space-y-6">
+			<UsageBanner />
 			<div className="flex items-center justify-between gap-4">
 				<div>
 					<h1 className="text-2xl font-semibold tracking-tight">

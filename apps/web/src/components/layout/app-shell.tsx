@@ -6,7 +6,7 @@
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useMutation } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { LogOut, Settings, ShieldCheck, Users } from 'lucide-react';
+import { CreditCard, LogOut, Settings, ShieldCheck, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
 	DropdownMenu,
@@ -90,6 +90,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 									<Link to="/team" className="cursor-pointer">
 										<Users className="mr-2 size-4" />
 										{t('nav.team')}
+									</Link>
+								</DropdownMenuItem>
+							)}
+							{me.user.role === 'owner' && getConfig().billingEnabled && (
+								<DropdownMenuItem asChild>
+									<Link to="/billing" className="cursor-pointer">
+										<CreditCard className="mr-2 size-4" />
+										{t('nav.billing')}
 									</Link>
 								</DropdownMenuItem>
 							)}

@@ -33,8 +33,49 @@
 		"team": "Team",
 		"security": "Security",
 		"settings": "Settings",
+		"billing": "Billing",
 		"sign_in": "Sign in",
 		"sign_out": "Sign out"
+	},
+	"billing": {
+		"title": "Billing",
+		"subtitle": "Plan, usage, and payment method for this workspace.",
+		"manage": "Manage subscription",
+		"upgrade_to_pro": "Upgrade to Pro",
+		"upgrade_to_team": "Upgrade to Team",
+		"renews_on": "renews {{date}}",
+		"past_due_title": "Payment failed",
+		"past_due_body": "Your last invoice didn't go through. Update your card in the customer portal to keep your subscription active.",
+		"questions_prefix": "Questions about your invoice or plan?",
+		"questions_link": "Get in touch",
+		"status": {
+			"active": "Active",
+			"trialing": "Free trial",
+			"past_due": "Past due",
+			"unpaid": "Unpaid",
+			"canceled": "Canceled",
+			"incomplete": "Incomplete"
+		},
+		"usage": {
+			"projects": "Projects",
+			"feedback": "Feedback this month",
+			"members": "Members"
+		},
+		"banner": {
+			"upgrade_cta": "Upgrade",
+			"over_project_title": "Project limit reached ({{current}} / {{limit}})",
+			"over_project_body": "Creating new projects is paused. Upgrade your plan to unlock more workspaces.",
+			"near_project_title": "Approaching project limit ({{current}} / {{limit}})",
+			"near_project_body": "You're close to the cap on projects for your current plan.",
+			"over_feedback_title": "Monthly feedback limit reached ({{current}} / {{limit}})",
+			"over_feedback_body": "Inbound feedback is being blocked until next month or you upgrade. Bot replies still work for existing items.",
+			"near_feedback_title": "Approaching monthly feedback limit ({{current}} / {{limit}})",
+			"near_feedback_body": "You're close to the cap on feedback for the current month.",
+			"over_member_title": "Member limit reached ({{current}} / {{limit}})",
+			"over_member_body": "Inviting new teammates is paused. Upgrade your plan to add more seats.",
+			"near_member_title": "Approaching member limit ({{current}} / {{limit}})",
+			"near_member_body": "You're close to the cap on teammates for your current plan."
+		}
 	},
 	"settings": {
 		"title": "Settings",
