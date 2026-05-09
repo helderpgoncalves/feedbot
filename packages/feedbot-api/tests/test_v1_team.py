@@ -251,6 +251,47 @@ async def test_create_invite_unknown_project_slug(
 
 
 @pytest.mark.asyncio
+async def test_create_invite_emails_spa_route(
+    client: AsyncClient, monkeypatch, make_tenant, make_user, login_as
+):
+    """Regression — the invite link must point at the SPA's public route
+    (``/invites/<token>``), not at the API path. Cloud's edge nginx and
+    self-host Caddy both route ``/v1/*`` to the SPA, so an API-shaped
+    URL would 404 in the recipient's browser.
+    """
+    tenant = await make_tenant()
+    owner = await make_user(tenant=tenant, email="o@x.com", role=Role.OWNER)
+    await login_as(owner)
+
+    captured: dict[str, str] = {}
+
+    class _RecordingBackend:
+        name = "smtp"
+
+        def send(self, *, to: str, subject: str, body: str) -> None:
+            captured["to"] = to
+            captured["body"] = body
+
+    async def _fake_resolve(_session):
+        return _RecordingBackend()
+
+    import feedbot_api.routers.v1_team as mod
+
+    monkeypatch.setattr(mod, "resolve_email_backend", _fake_resolve)
+
+    r = await client.post(
+        "/v1/invites", json={"email": "new@x.com", "role": "member"}
+    )
+    assert r.status_code == 201, r.text
+
+    body = captured.get("body", "")
+    # Link must be /invites/<token>, not /v1/invites/preview?token=...
+    assert "/invites/" in body
+    assert "/v1/invites/preview" not in body
+    assert "?token=" not in body
+
+
+@pytest.mark.asyncio
 async def test_list_pending_invites_returns_only_unused(
     client: AsyncClient,
     db_session: AsyncSession,
