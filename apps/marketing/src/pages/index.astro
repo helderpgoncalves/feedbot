@@ -105,11 +105,53 @@ const SITE = 'https://feedbot.dev';
 					Self-host guide
 				</a>
 			</div>
-			<div class="landing-install">
-				<span class="prompt" aria-hidden="true">$</span>
-				<code id="install-cmd">{installCmd}</code>
-				<button id="copy-btn" type="button" aria-label="Copy install command">Copy</button>
-			</div>
+
+			{/*
+				Terminal demo — shows the actual one-liner above the recording
+				of it running. The video autoplays, loops, is muted (autoplay
+				policy), and falls back gracefully on browsers that can't play
+				either source. The aria-hidden is correct: the GIF/video is
+				decorative, the install command is already announced above.
+			*/}
+			<figure class="terminal-demo">
+				<header class="terminal-chrome">
+					<span class="terminal-dots" aria-hidden="true">
+						<span></span><span></span><span></span>
+					</span>
+					<span class="terminal-title">~ /feedbot — install</span>
+					<span class="terminal-status">live</span>
+				</header>
+				<div class="terminal-cmd">
+					<span class="prompt" aria-hidden="true">$</span>
+					<code id="install-cmd">{installCmd}</code>
+					<button
+						id="copy-btn"
+						type="button"
+						class="copy-btn"
+						aria-label="Copy install command"
+					>
+						Copy
+					</button>
+				</div>
+				<video
+					class="terminal-video"
+					autoplay
+					loop
+					muted
+					playsinline
+					aria-hidden="true"
+					poster="/demo/install.gif"
+					preload="metadata"
+				>
+					<source src="/demo/install.webm" type="video/webm" />
+					<source src="/demo/install.mp4" type="video/mp4" />
+					<img src="/demo/install.gif" alt="" />
+				</video>
+				<figcaption class="terminal-caption">
+					<span>One command. Real footage, no edits.</span>
+					<strong>~30 seconds to a running stack.</strong>
+				</figcaption>
+			</figure>
 		</section>
 
 		{/* ── Proof strip ──────────────────────────────────────────── */}

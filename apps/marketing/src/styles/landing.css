@@ -137,8 +137,15 @@ a {
 	justify-content: space-between;
 	gap: 1.5rem;
 	padding: 0.875rem 1.5rem;
-	max-width: 1200px;
+	max-width: 1400px;
 	margin: 0 auto;
+}
+
+@media (min-width: 1024px) {
+	.landing-nav-inner {
+		padding-left: 2.5rem;
+		padding-right: 2.5rem;
+	}
 }
 
 .landing-nav .brand {
@@ -255,13 +262,27 @@ a {
 /* ─── Layout containers ──────────────────────────────────────────── */
 
 .landing-section {
-	max-width: 1200px;
+	max-width: 1400px;
 	margin: 0 auto;
 	padding: 5rem 1.5rem;
 }
 
+@media (min-width: 1024px) {
+	.landing-section {
+		padding-left: 2.5rem;
+		padding-right: 2.5rem;
+	}
+}
+
 .landing-section.tight {
 	padding: 3.5rem 1.5rem;
+}
+
+@media (min-width: 1024px) {
+	.landing-section.tight {
+		padding-left: 2.5rem;
+		padding-right: 2.5rem;
+	}
 }
 
 .section-header {
@@ -298,11 +319,19 @@ a {
 
 .landing-hero {
 	position: relative;
-	max-width: 1200px;
+	max-width: 1400px;
 	margin: 0 auto;
-	padding: 5rem 1.5rem 3rem;
+	padding: 5rem 1.5rem 4rem;
 	text-align: center;
 	overflow: hidden;
+}
+
+@media (min-width: 1024px) {
+	.landing-hero {
+		padding-left: 2.5rem;
+		padding-right: 2.5rem;
+		padding-top: 6rem;
+	}
 }
 
 .landing-hero::before {
@@ -482,10 +511,155 @@ a {
 	border-color: var(--landing-accent);
 }
 
+/* ─── Terminal demo (hero showcase) ──────────────────────────────── */
+
+.terminal-demo {
+	max-width: 960px;
+	margin: 1rem auto 0;
+	background: var(--landing-card);
+	border: 1px solid var(--landing-border);
+	border-radius: var(--landing-radius);
+	overflow: hidden;
+	box-shadow: var(--landing-shadow-lg);
+	text-align: left;
+	position: relative;
+}
+
+.terminal-chrome {
+	display: flex;
+	align-items: center;
+	gap: 0.875rem;
+	padding: 0.75rem 1rem;
+	background: var(--landing-bg-elevated);
+	border-bottom: 1px solid var(--landing-border);
+}
+
+.terminal-dots {
+	display: inline-flex;
+	gap: 0.4rem;
+}
+
+.terminal-dots span {
+	width: 0.625rem;
+	height: 0.625rem;
+	border-radius: 50%;
+	background: var(--landing-border-strong);
+}
+
+.terminal-dots span:nth-child(1) {
+	background: #ff5f56;
+}
+.terminal-dots span:nth-child(2) {
+	background: #ffbd2e;
+}
+.terminal-dots span:nth-child(3) {
+	background: #27c93f;
+}
+
+.terminal-title {
+	color: var(--landing-subtle);
+	font-family: var(--landing-font-mono);
+	font-size: 0.75rem;
+	flex: 1;
+	text-align: center;
+}
+
+.terminal-status {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	font-size: 0.7rem;
+	color: var(--landing-accent);
+	font-family: var(--landing-font-mono);
+}
+
+.terminal-status::before {
+	content: '';
+	width: 0.45rem;
+	height: 0.45rem;
+	border-radius: 50%;
+	background: var(--landing-accent);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--landing-accent) 25%, transparent);
+}
+
+.terminal-cmd {
+	display: flex;
+	align-items: center;
+	gap: 0.625rem;
+	padding: 0.875rem 1.25rem;
+	font-family: var(--landing-font-mono);
+	font-size: 0.9rem;
+	color: var(--landing-fg);
+	background: var(--landing-card);
+	border-bottom: 1px solid var(--landing-border);
+}
+
+.terminal-cmd .prompt {
+	color: var(--landing-subtle);
+	user-select: none;
+}
+
+.terminal-cmd code {
+	flex: 1;
+	background: none;
+	color: var(--landing-fg);
+	white-space: nowrap;
+	overflow-x: auto;
+	min-width: 0;
+}
+
+.terminal-cmd .copy-btn {
+	background: var(--landing-bg-elevated);
+	color: var(--landing-muted);
+	border: 1px solid var(--landing-border);
+	border-radius: 0.375rem;
+	padding: 0.4rem 0.75rem;
+	font-size: 0.78rem;
+	cursor: pointer;
+	font-family: inherit;
+	flex-shrink: 0;
+	transition: color 0.15s, border-color 0.15s;
+}
+
+.terminal-cmd .copy-btn:hover {
+	color: var(--landing-fg);
+	border-color: var(--landing-border-strong);
+}
+
+.terminal-cmd .copy-btn.copied {
+	color: var(--landing-accent);
+	border-color: var(--landing-accent);
+}
+
+.terminal-video {
+	display: block;
+	width: 100%;
+	height: auto;
+	background: #000;
+}
+
+.terminal-caption {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	padding: 0.75rem 1.25rem;
+	background: var(--landing-bg-elevated);
+	border-top: 1px solid var(--landing-border);
+	font-family: var(--landing-font-mono);
+	font-size: 0.75rem;
+	color: var(--landing-subtle);
+}
+
+.terminal-caption strong {
+	color: var(--landing-accent);
+	font-weight: 500;
+}
+
 /* ─── Logo strip / proof ─────────────────────────────────────────── */
 
 .landing-proof {
-	max-width: 1200px;
+	max-width: 1400px;
 	margin: 0 auto;
 	padding: 2rem 1.5rem;
 	text-align: center;
@@ -513,7 +687,7 @@ a {
 /* ─── Bento / feature grid ───────────────────────────────────────── */
 
 .landing-features {
-	max-width: 1200px;
+	max-width: 1400px;
 	margin: 0 auto;
 	padding: 0 1.5rem;
 	display: grid;
@@ -522,7 +696,7 @@ a {
 }
 
 .landing-bento {
-	max-width: 1200px;
+	max-width: 1400px;
 	margin: 0 auto;
 	padding: 0 1.5rem;
 	display: grid;
@@ -607,7 +781,7 @@ a {
 /* ─── How-it-works steps ─────────────────────────────────────────── */
 
 .landing-steps {
-	max-width: 1080px;
+	max-width: 1280px;
 	margin: 0 auto;
 	padding: 0 1.5rem;
 	display: grid;
@@ -652,7 +826,7 @@ a {
 /* ─── Pricing peek ───────────────────────────────────────────────── */
 
 .landing-pricing {
-	max-width: 1080px;
+	max-width: 1280px;
 	margin: 0 auto;
 	padding: 0 1.5rem;
 	display: grid;
@@ -810,7 +984,7 @@ a {
 /* ─── Final CTA ──────────────────────────────────────────────────── */
 
 .landing-cta-final {
-	max-width: 1080px;
+	max-width: 1280px;
 	margin: 0 auto 5rem;
 	padding: 3rem 1.5rem;
 	text-align: center;
@@ -853,7 +1027,7 @@ a {
 .landing-footer {
 	border-top: 1px solid var(--landing-border);
 	padding: 3rem 1.5rem 2.5rem;
-	max-width: 1200px;
+	max-width: 1400px;
 	margin: 0 auto;
 	display: grid;
 	grid-template-columns: 1.5fr repeat(3, 1fr);
