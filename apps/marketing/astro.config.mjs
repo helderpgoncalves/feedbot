@@ -77,10 +77,6 @@ export default defineConfig({
                     autogenerate: { directory: 'telegram' },
                 },
                 {
-                    label: 'Pricing',
-                    link: '/pricing/',
-                },
-                {
                     label: 'Legal',
                     items: [
                         { label: 'Terms of Service', slug: 'legal/terms' },

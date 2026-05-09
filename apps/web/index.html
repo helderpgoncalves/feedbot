@@ -1,11 +1,10 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="dark light" />
-    <meta name="theme-color" content="#0a0a0a" />
+    <meta name="color-scheme" content="light dark" />
     <title>Feedbot</title>
     <meta name="description" content="Feedbot — turn community chat into a structured product backlog. Open-source, self-hostable, MCP-native." />
     <meta property="og:title" content="Feedbot" />
@@ -14,6 +13,23 @@
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content="/og.png" />
+    <!--
+      Resolve theme before paint to avoid the dark/light flash on load.
+      Stored preference > prefers-color-scheme. Mirrors the marketing site.
+    -->
+    <script>
+      (() => {
+        try {
+          const stored = localStorage.getItem('feedbot-theme');
+          const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          const isDark = stored === 'dark' || (!stored && prefersDark);
+          if (isDark) document.documentElement.classList.add('dark');
+          if (stored === 'dark' || stored === 'light') {
+            document.documentElement.dataset.theme = stored;
+          }
+        } catch {}
+      })();
+    </script>
   </head>
   <body class="bg-background text-foreground antialiased">
     <div id="root"></div>

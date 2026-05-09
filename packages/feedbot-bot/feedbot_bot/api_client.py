@@ -47,5 +47,16 @@ class FeedbotClient:
         r = await self._client.post("/v1/internal/outbound-ack", json=payload)
         r.raise_for_status()
 
+    async def fetch_bot_config(self) -> dict[str, Any]:
+        """Fetch the Telegram credentials saved via the admin panel.
+
+        Returns ``{"token": str | None, "username": str | None}``. Used at
+        bot startup to discover whether to launch and which token to use
+        when ``TELEGRAM_BOT_TOKEN`` is not set in the environment.
+        """
+        r = await self._client.get("/v1/internal/bot-config")
+        r.raise_for_status()
+        return r.json()
+
     async def aclose(self) -> None:
         await self._client.aclose()

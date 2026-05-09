@@ -1,129 +1,429 @@
 ---
 // Homepage at https://feedbot.dev/.
 //
-// Doesn't use the Starlight layout — we want a custom marketing page,
-// not docs chrome. Starlight still serves /docs and /<slug> for any
-// MDX in src/content/docs/.
+// Static Astro page (no Starlight chrome). Starlight still serves
+// /docs and /<slug> for any MDX in src/content/docs/. Theme is driven
+// by `data-theme` on <html>; the inline script in <head> resolves the
+// stored preference before paint to avoid a flash on load.
 import '../styles/landing.css';
+import '@fontsource/geist-sans/400.css';
+import '@fontsource/geist-sans/500.css';
+import '@fontsource/geist-sans/600.css';
+import '@fontsource/geist-mono/400.css';
+import '@fontsource/geist-mono/500.css';
 
 const installCmd = 'curl -fsSL https://get.feedbot.dev | sh';
+const SITE = 'https://feedbot.dev';
 ---
 
 <!doctype html>
 <html lang="en">
-    <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>Feedbot · Turn community chat into a product backlog</title>
-        <meta
-            name="description"
-            content="Open-source feedback collection, MCP-native, self-hostable in 30 seconds. Turn Telegram chat noise into a structured product backlog."
-        />
-        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-        <meta property="og:title" content="Feedbot" />
-        <meta
-            property="og:description"
-            content="Turn community chat into a structured product backlog."
-        />
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://feedbot.dev/" />
-    </head>
-    <body class="landing">
-        <nav class="landing-nav">
-            <a class="brand" href="/">
-                <span class="brand-dot"></span>
-                feedbot
-            </a>
-            <div>
-                <a href="/introduction/">Docs</a>
-                <a href="https://app.feedbot.dev">Try it</a>
-                <a href="https://github.com/helderpgoncalves/feedbot">GitHub</a>
-            </div>
-        </nav>
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Feedbot · Turn community chat into a product backlog</title>
+		<meta
+			name="description"
+			content="Open-source feedback collection. Telegram → triaged backlog with one curl. MCP-native, self-hostable, MIT licensed."
+		/>
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta property="og:title" content="Feedbot · Open-source feedback for product teams" />
+		<meta
+			property="og:description"
+			content="Listen to your Telegram community, triage with an LLM, expose the backlog over MCP. Self-host in 30 seconds."
+		/>
+		<meta property="og:type" content="website" />
+		<meta property="og:url" content={SITE} />
+		<meta property="og:image" content={`${SITE}/og.png`} />
+		<meta name="twitter:card" content="summary_large_image" />
 
-        <section class="landing-hero">
-            <h1>Turn community chat<br />into a product backlog.</h1>
-            <p class="tagline">
-                Open-source feedback collection that listens to your Telegram
-                chats, classifies issues with an LLM, and exposes the
-                structured backlog over an MCP server. Self-host in 30
-                seconds.
-            </p>
+		{/* Resolve theme before paint to avoid FOUC. */}
+		<script is:inline>
+			(() => {
+				try {
+					const stored = localStorage.getItem('feedbot-theme');
+					if (stored === 'light' || stored === 'dark') {
+						document.documentElement.setAttribute('data-theme', stored);
+					}
+				} catch {}
+			})();
+		</script>
+	</head>
+	<body class="landing">
+		{/* ── Top nav ─────────────────────────────────────────────── */}
+		<nav class="landing-nav">
+			<div class="landing-nav-inner">
+				<a class="brand" href="/" aria-label="Feedbot home">
+					<span class="brand-dot" aria-hidden="true"></span>
+					feedbot
+				</a>
+				<div class="landing-nav-links">
+					<a href="/introduction/">Docs</a>
+					<a href="/pricing/">Pricing</a>
+					<a href="https://github.com/helderpgoncalves/feedbot">GitHub</a>
+					<button
+						type="button"
+						class="theme-toggle"
+						id="theme-toggle"
+						aria-label="Toggle theme"
+						title="Toggle theme"
+					>
+						<svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+							<circle cx="12" cy="12" r="4"></circle>
+							<path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+						</svg>
+						<svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+							<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+						</svg>
+					</button>
+					<a href="https://app.feedbot.dev" class="nav-cta">Sign in →</a>
+				</div>
+			</div>
+		</nav>
 
-            <div class="landing-cta">
-                <a class="landing-button primary" href="https://app.feedbot.dev"
-                    >Try the cloud →</a
-                >
-                <a class="landing-button secondary" href="/introduction/"
-                    >Read the docs</a
-                >
-            </div>
+		{/* ── Hero ────────────────────────────────────────────────── */}
+		<section class="landing-hero">
+			<a class="hero-pill" href="https://github.com/helderpgoncalves/feedbot">
+				<span class="pill-tag">v0.1</span>
+				<span>Open-source feedback platform</span>
+				<span class="pill-arrow">→</span>
+			</a>
+			<h1>
+				Turn community chat<br />
+				into a <span class="accent">product backlog</span>.
+			</h1>
+			<p class="tagline">
+				Feedbot listens to your Telegram groups, classifies every message
+				with an LLM, and serves the structured backlog to Claude Code, Cursor,
+				and Windsurf over MCP. Self-host in 30 seconds.
+			</p>
+			<div class="landing-cta">
+				<a class="landing-button primary" href="https://app.feedbot.dev">
+					Try Feedbot Cloud
+				</a>
+				<a class="landing-button secondary" href="/quickstart-selfhost/">
+					Self-host guide
+				</a>
+			</div>
+			<div class="landing-install">
+				<span class="prompt" aria-hidden="true">$</span>
+				<code id="install-cmd">{installCmd}</code>
+				<button id="copy-btn" type="button" aria-label="Copy install command">Copy</button>
+			</div>
+		</section>
 
-            <div class="landing-install">
-                <code id="install-cmd">{installCmd}</code>
-                <button id="copy-btn" type="button">Copy</button>
-            </div>
-        </section>
+		{/* ── Proof strip ──────────────────────────────────────────── */}
+		<div class="landing-proof">
+			<span>MIT licensed</span>
+			<span class="proof-divider"></span>
+			<span>MCP-native</span>
+			<span class="proof-divider"></span>
+			<span>Postgres + FastAPI + React</span>
+			<span class="proof-divider"></span>
+			<span>Runs anywhere Docker runs</span>
+		</div>
 
-        <section class="landing-features">
-            <div class="landing-feature">
-                <h3>Self-host in 30 seconds</h3>
-                <p>
-                    A single <code>curl … | sh</code> bootstraps a Docker
-                    stack, generates secrets, and gets you to a running
-                    dashboard. No YAML, no <code>.env</code> editing.
-                </p>
-            </div>
-            <div class="landing-feature">
-                <h3>Configure in the UI</h3>
-                <p>
-                    SMTP, Telegram bot, domain, HTTPS — all in the dashboard's
-                    Settings page. Save once, the orchestrator rewrites your{' '}
-                    <code>.env</code> and restarts only what changed.
-                </p>
-            </div>
-            <div class="landing-feature">
-                <h3>MCP-native</h3>
-                <p>
-                    Every Feedbot install ships an MCP server at{' '}
-                    <code>/mcp/</code>. Drop the URL into Claude Code, Cursor,
-                    or Windsurf and the model can read and triage feedback.
-                </p>
-            </div>
-            <div class="landing-feature">
-                <h3>Telegram-first</h3>
-                <p>
-                    Add the bot to any group with one deep link. Replies in
-                    Telegram are tracked back to the original issue. Optional
-                    LLM classifier tags + summarises every message.
-                </p>
-            </div>
-        </section>
+		{/* ── How it works ─────────────────────────────────────────── */}
+		<section class="landing-section" id="how">
+			<div class="section-header">
+				<span class="section-eyebrow">How it works</span>
+				<h2 class="section-title">From a chaotic group chat to a triaged backlog in three steps.</h2>
+				<p class="section-lede">
+					Feedbot lives between your community and your tooling. It picks the
+					signal out of the noise so your engineers can focus on shipping.
+				</p>
+			</div>
+			<div class="landing-steps">
+				<article class="landing-step">
+					<h3>Connect a Telegram group</h3>
+					<p>
+						Generate an invite link in the dashboard, drop the bot into a
+						group, and Feedbot starts listening. Replies in chat are tracked
+						back to the original feedback.
+					</p>
+				</article>
+				<article class="landing-step">
+					<h3>Auto-classify with your LLM</h3>
+					<p>
+						Bring your own OpenAI or Anthropic key. Each message becomes a
+						typed feedback row (bug · feature · question) with severity, tags,
+						and a one-line summary. Monthly budgets cap surprises.
+					</p>
+				</article>
+				<article class="landing-step">
+					<h3>Query from your editor over MCP</h3>
+					<p>
+						Every Feedbot install ships an MCP server at <code>/mcp/</code>.
+						Drop the URL into Claude Code and ask "what bugs are open in
+						project X?" — the model reads, filters, and triages from your IDE.
+					</p>
+				</article>
+			</div>
+		</section>
 
-        <footer class="landing-footer">
-            <a href="/introduction/">Docs</a>
-            <a href="https://app.feedbot.dev">Cloud</a>
-            <a href="https://github.com/helderpgoncalves/feedbot">GitHub</a>
-            <a href="https://github.com/helderpgoncalves/feedbot/blob/main/LICENSE">License</a>
-            <a href="mailto:[email protected]">Contact</a>
-            <p style="margin-top: 1rem;">
-                <small>MIT licensed · Built openly · <a href="mailto:[email protected]">[email protected]</a></small>
-            </p>
-        </footer>
+		{/* ── Bento feature grid ───────────────────────────────────── */}
+		<section class="landing-section tight" id="features">
+			<div class="section-header">
+				<span class="section-eyebrow">What's inside</span>
+				<h2 class="section-title">Everything you need to run feedback like a system, not a folder of screenshots.</h2>
+			</div>
+			<div class="landing-bento">
+				<article class="landing-feature bento-3x1">
+					<div class="feature-icon">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+					</div>
+					<h3>Self-host in 30 seconds</h3>
+					<p>
+						A single <code>curl … | sh</code> bootstraps a full Docker stack —
+						API, dashboard, bot, Postgres, and TLS termination. No YAML, no
+						<code>.env</code> editing, no Kubernetes.
+					</p>
+				</article>
+				<article class="landing-feature bento-1x1">
+					<div class="feature-icon">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+					</div>
+					<h3>Configure in the UI</h3>
+					<p>
+						SMTP, Telegram, domain, HTTPS — all in the dashboard. Save once,
+						the orchestrator restarts only what changed.
+					</p>
+				</article>
+				<article class="landing-feature bento-2x1">
+					<div class="feature-icon">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.87.36 1.71.7 2.5a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.58-1.27a2 2 0 0 1 2.11-.45c.79.34 1.63.57 2.5.7A2 2 0 0 1 22 16.92z"></path></svg>
+					</div>
+					<h3>Telegram-first conversational loop</h3>
+					<p>
+						Replies in Telegram are tracked back to the original issue. The
+						bot acks reactions and posts updates when the team marks an item
+						done.
+					</p>
+				</article>
+				<article class="landing-feature bento-2x1">
+					<div class="feature-icon">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+					</div>
+					<h3>MCP-native</h3>
+					<p>
+						Streamable-HTTP MCP server at <code>/mcp/</code>. Works with
+						Claude Code, Claude Desktop, Cursor, Windsurf — anywhere MCP
+						speaks.
+					</p>
+				</article>
+				<article class="landing-feature bento-1x1">
+					<div class="feature-icon">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+					</div>
+					<h3>BYOK by default</h3>
+					<p>
+						LLM keys stay yours, Fernet-encrypted at rest. Per-project budget
+						caps prevent runaway bills.
+					</p>
+				</article>
+				<article class="landing-feature bento-3x1">
+					<div class="feature-icon">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 12l2 2 4-4"></path><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c2.4 0 4.6.94 6.21 2.47"></path></svg>
+					</div>
+					<h3>Open source, openly built</h3>
+					<p>
+						Every feature ships with a public roadmap, ADRs, and a changelog.
+						MIT licensed forever. No "open core" pivot, no feature gating
+						between free and paid — the cloud is ops-as-a-service.
+					</p>
+				</article>
+			</div>
+		</section>
 
-        <script>
-            const btn = document.getElementById('copy-btn');
-            const cmd = document.getElementById('install-cmd');
-            btn?.addEventListener('click', async () => {
-                if (!cmd?.textContent) return;
-                try {
-                    await navigator.clipboard.writeText(cmd.textContent);
-                    btn.textContent = 'Copied';
-                    setTimeout(() => (btn.textContent = 'Copy'), 1500);
-                } catch {
-                    btn.textContent = 'Press ⌘C';
-                }
-            });
-        </script>
-    </body>
+		{/* ── Pricing peek ─────────────────────────────────────────── */}
+		<section class="landing-section" id="pricing">
+			<div class="section-header">
+				<span class="section-eyebrow">Pricing</span>
+				<h2 class="section-title">Free forever for self-host. Hosted plan when you'd rather not run servers.</h2>
+				<p class="section-lede">
+					Same product, two delivery modes. Migrate either direction with a
+					Postgres dump.
+				</p>
+			</div>
+			<div class="landing-pricing">
+				<article class="pricing-card">
+					<h3>Self-host</h3>
+					<div class="pricing-price">
+						<span class="amount">$0</span>
+						<span class="period">/ forever</span>
+					</div>
+					<p class="sub">MIT licensed. Bring your own Docker host.</p>
+					<ul class="pricing-list">
+						<li>Unlimited projects, members, feedbacks</li>
+						<li>LLM auto-classification (BYOK)</li>
+						<li>MCP server included</li>
+						<li>Community support on GitHub</li>
+					</ul>
+					<a class="landing-button secondary" href="/quickstart-selfhost/">Read the quickstart</a>
+				</article>
+				<article class="pricing-card featured">
+					<span class="pricing-badge">Cloud</span>
+					<h3>Hosted</h3>
+					<div class="pricing-price">
+						<span class="amount">Free beta</span>
+					</div>
+					<p class="sub">Managed by us. EU data residency. Pricing TBD on GA.</p>
+					<ul class="pricing-list">
+						<li>Everything in self-host</li>
+						<li>Managed Postgres + daily backups</li>
+						<li>Automated upgrades, zero downtime</li>
+						<li>SMTP delivery + DPA on request</li>
+					</ul>
+					<a class="landing-button primary" href="https://app.feedbot.dev">Sign up free →</a>
+				</article>
+			</div>
+		</section>
+
+		{/* ── FAQ ─────────────────────────────────────────────────── */}
+		<section class="landing-section tight" id="faq">
+			<div class="section-header">
+				<span class="section-eyebrow">FAQ</span>
+				<h2 class="section-title">Quick answers.</h2>
+			</div>
+			<div class="landing-faq">
+				<details>
+					<summary>Will self-host stay free?</summary>
+					<p>
+						Yes — forever, MIT. We don't believe in feature-stripping the OSS
+						to push people to a paid tier. The cloud is ops-as-a-service, not
+						a different product.
+					</p>
+				</details>
+				<details>
+					<summary>Which platforms can I deploy on?</summary>
+					<p>
+						Anything that runs Docker. We test on Coolify, Dokploy, plain
+						Docker behind nginx-proxy-manager, and Hetzner / DigitalOcean VMs.
+						See the <a href="/quickstart-selfhost/">self-host guide</a>.
+					</p>
+				</details>
+				<details>
+					<summary>Can I migrate self-host → cloud (or back)?</summary>
+					<p>
+						Yes. Postgres dump → restore. Same schema both sides. Detailed
+						migration guide ships with cloud GA.
+					</p>
+				</details>
+				<details>
+					<summary>What about LLM costs?</summary>
+					<p>
+						You bring your own OpenAI or Anthropic key. Costs are tracked
+						per-project in <code>llm_calls</code>; monthly budget caps stop
+						calls when you hit your limit.
+					</p>
+				</details>
+				<details>
+					<summary>What does the MCP integration look like?</summary>
+					<p>
+						Streamable-HTTP MCP at <code>/mcp/</code>. Drop the URL into
+						Claude Code, Cursor, or Windsurf and the model can list, read,
+						filter, and update feedback rows on your behalf — same auth as
+						the API.
+					</p>
+				</details>
+				<details>
+					<summary>Is there an enterprise tier?</summary>
+					<p>
+						Not at launch. We focus on shipping the product. If you need a
+						signed DPA, EU residency, or a custom SLA, email us at <a href="mailto:hello@feedbot.dev">hello@feedbot.dev</a>.
+					</p>
+				</details>
+			</div>
+		</section>
+
+		{/* ── Final CTA ────────────────────────────────────────────── */}
+		<section class="landing-section tight">
+			<div class="landing-cta-final">
+				<h2>Ship feedback like a feature, not a folder of screenshots.</h2>
+				<p>30 seconds to spin up. No card required.</p>
+				<div class="landing-cta">
+					<a class="landing-button primary" href="https://app.feedbot.dev">Start with the cloud</a>
+					<a class="landing-button secondary" href="/quickstart-selfhost/">Self-host the OSS</a>
+				</div>
+			</div>
+		</section>
+
+		{/* ── Footer ──────────────────────────────────────────────── */}
+		<footer class="landing-footer">
+			<div class="footer-brand">
+				<a class="brand" href="/" aria-label="Feedbot home">
+					<span class="brand-dot" aria-hidden="true"></span>
+					feedbot
+				</a>
+				<p>
+					Open-source feedback collection. Built openly, MIT licensed.
+				</p>
+			</div>
+			<div>
+				<h4>Product</h4>
+				<ul>
+					<li><a href="/introduction/">Documentation</a></li>
+					<li><a href="/pricing/">Pricing</a></li>
+					<li><a href="https://app.feedbot.dev">Cloud sign-in</a></li>
+					<li><a href="/api/mcp/">MCP server</a></li>
+				</ul>
+			</div>
+			<div>
+				<h4>Open source</h4>
+				<ul>
+					<li><a href="https://github.com/helderpgoncalves/feedbot">GitHub</a></li>
+					<li><a href="https://github.com/helderpgoncalves/feedbot/discussions">Discussions</a></li>
+					<li><a href="https://github.com/helderpgoncalves/feedbot/blob/main/CHANGELOG.md">Changelog</a></li>
+					<li><a href="https://github.com/helderpgoncalves/feedbot/blob/main/LICENSE">MIT License</a></li>
+				</ul>
+			</div>
+			<div>
+				<h4>Legal</h4>
+				<ul>
+					<li><a href="/legal/terms/">Terms</a></li>
+					<li><a href="/legal/privacy/">Privacy</a></li>
+					<li><a href="/legal/dpa/">DPA</a></li>
+					<li><a href="/legal/cookies/">Cookies</a></li>
+				</ul>
+			</div>
+			<div class="footer-meta">
+				<span>© {new Date().getFullYear()} Feedbot. MIT licensed.</span>
+				<span><a href="mailto:hello@feedbot.dev">hello@feedbot.dev</a></span>
+			</div>
+		</footer>
+
+		{/* ── Inline scripts: copy + theme toggle ─────────────────── */}
+		<script is:inline>
+			// Copy install command.
+			const btn = document.getElementById('copy-btn');
+			const cmd = document.getElementById('install-cmd');
+			btn?.addEventListener('click', async () => {
+				if (!cmd?.textContent) return;
+				try {
+					await navigator.clipboard.writeText(cmd.textContent);
+					btn.textContent = 'Copied';
+					btn.classList.add('copied');
+					setTimeout(() => {
+						btn.textContent = 'Copy';
+						btn.classList.remove('copied');
+					}, 1500);
+				} catch {
+					btn.textContent = 'Press ⌘C';
+				}
+			});
+
+			// Theme toggle.
+			const toggle = document.getElementById('theme-toggle');
+			toggle?.addEventListener('click', () => {
+				const current =
+					document.documentElement.getAttribute('data-theme') ||
+					(window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+				const next = current === 'dark' ? 'light' : 'dark';
+				document.documentElement.setAttribute('data-theme', next);
+				try {
+					localStorage.setItem('feedbot-theme', next);
+				} catch {}
+			});
+		</script>
+	</body>
 </html>

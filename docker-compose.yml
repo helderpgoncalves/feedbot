@@ -56,15 +56,10 @@ services:
     labels:
       com.feedbot.installer: "true"
       com.feedbot.role: "web"
-    environment:
-      FEEDBOT_PRODUCT_NAME: ${FEEDBOT_PRODUCT_NAME:-Feedbot}
-      FEEDBOT_PUBLIC_URL: ${FEEDBOT_PUBLIC_URL:-http://localhost}
-      FEEDBOT_MCP_PUBLIC_URL: ${FEEDBOT_MCP_PUBLIC_URL:-}
-      FEEDBOT_TELEGRAM_BOT_USERNAME: ${FEEDBOT_TELEGRAM_BOT_USERNAME:-}
-      FEEDBOT_ALLOW_SIGNUP: ${FEEDBOT_ALLOW_SIGNUP:-false}
-      FEEDBOT_BILLING_ENABLED: ${FEEDBOT_BILLING_ENABLED:-false}
-      FEEDBOT_DEPLOYMENT: ${FEEDBOT_DEPLOYMENT:-self-host}
-      FEEDBOT_BUILD_SHA: ${FEEDBOT_BUILD_SHA:-}
+    # Branding / feature flags are picked up from .env when set, otherwise
+    # the entrypoint applies sensible self-host defaults. See .env.example
+    # for the full list of FEEDBOT_* runtime knobs.
+    env_file: .env
     # No ports: caddy is the only thing the host can reach.
     expose:
       - "80"

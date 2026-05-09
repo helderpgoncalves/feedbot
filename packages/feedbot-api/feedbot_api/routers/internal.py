@@ -268,3 +268,35 @@ async def outbound_ack(body: OutboundAckIn, session: AsyncSession = Depends(get_
         body.sent_message_id,
     )
     return {"status": "ok"}
+
+
+# ─── Bot self-configuration ────────────────────────────────────────────────
+
+
+class BotConfigOut(BaseModel):
+    """Telegram bot credentials the bot service polls for at startup.
+
+    The bot can be configured two ways:
+      - ``TELEGRAM_BOT_TOKEN`` env var (boot-time, immutable per restart).
+      - Saved in ``InstanceConfig`` via the admin panel (mutable, picked up
+        by the bot polling this endpoint).
+
+    The bot prefers env when set, otherwise falls back to this endpoint and
+    re-polls every 30s so an admin saving a token in the UI activates the
+    bot without an explicit restart.
+
+    The token is a high-value secret — this endpoint requires the bot
+    shared secret (``FEEDBOT_BOT_TOKEN``) like every other ``/v1/internal/*``
+    route.
+    """
+
+    token: str | None
+    username: str | None
+
+
+@router.get("/bot-config", response_model=BotConfigOut)
+async def bot_config(session: AsyncSession = Depends(get_session)) -> BotConfigOut:
+    from feedbot_api.orchestrator import settings as orch_settings
+
+    cfg = await orch_settings.load(session)
+    return BotConfigOut(token=cfg.bot.token, username=cfg.bot.username)

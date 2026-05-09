@@ -153,7 +153,7 @@ SMTP_HOST=smtp.resend.com
 SMTP_PORT=587
 SMTP_USER=resend
 SMTP_PASSWORD=re_<your Resend API key>
-[email protected]
+no-reply@feedbot.dev
 ```
 
 Save → Coolify recreates the api container → magic links work.

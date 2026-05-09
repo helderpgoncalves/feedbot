@@ -65,6 +65,16 @@ You stay in your editor. Reporters stay in their chat. Nothing falls through.
 
 ## 🚀 Quickstart (Docker, 5 minutes)
 
+<p align="center">
+  <img src="docs/assets/install.gif" alt="Feedbot installer running curl -fsSL https://get.feedbot.dev | sh" width="900" />
+</p>
+
+> One-liner install on a fresh box:
+> ```bash
+> curl -fsSL https://get.feedbot.dev | sh
+> ```
+> Or install from source (below):
+
 ```bash
 git clone https://github.com/helderpgoncalves/feedbot.git
 cd feedbot

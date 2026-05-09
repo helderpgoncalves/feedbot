@@ -49,8 +49,8 @@ from feedbot_api.cookies import (
 )
 from feedbot_api.deps import get_session, require_user
 from feedbot_api.email_backend import (
-    email_backend_from_env,
-    is_console_backend_unsafe_for_prod,
+    is_email_delivery_safe,
+    resolve_email_backend,
 )
 from feedbot_api.rate_limit import limiter
 from feedbot_api.schemas import (
@@ -100,7 +100,7 @@ async def login(
     or the magic-link verifier will mark the login as ``cross_device``
     and email a notice.
     """
-    if is_console_backend_unsafe_for_prod():
+    if not await is_email_delivery_safe(session):
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
             "email delivery not configured",
@@ -120,8 +120,9 @@ async def login(
         # fetch and renders progress / error UI, instead of dropping the user
         # onto a blank 204.
         link = f"{base}/magic?email={email}&token={token_raw}"
+        backend = await resolve_email_backend(session)
         with contextlib.suppress(Exception):
-            email_backend_from_env().send(
+            backend.send(
                 to=email,
                 subject="Your Feedbot sign-in link",
                 body=(
@@ -178,7 +179,7 @@ async def signup(
         # that this endpoint exists; 404 mirrors what an unrouted path does.
         raise HTTPException(status.HTTP_404_NOT_FOUND, "not found")
 
-    if is_console_backend_unsafe_for_prod():
+    if not await is_email_delivery_safe(session):
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
             "email delivery not configured",
@@ -215,8 +216,9 @@ async def signup(
             )
             base = str(request.base_url).rstrip("/")
             link = f"{base}/magic?email={existing_user.email}&token={token_raw}"
+            backend = await resolve_email_backend(session)
             with contextlib.suppress(Exception):
-                email_backend_from_env().send(
+                backend.send(
                     to=existing_user.email,
                     subject="Your Feedbot sign-in link",
                     body=(
@@ -278,8 +280,9 @@ async def signup(
     await issue_magic_link(session, user.email, token_raw, nonce_hash=nonce_hash)
     base = str(request.base_url).rstrip("/")
     link = f"{base}/magic?email={user.email}&token={token_raw}"
+    backend = await resolve_email_backend(session)
     with contextlib.suppress(Exception):
-        email_backend_from_env().send(
+        backend.send(
             to=user.email,
             subject="Welcome to Feedbot — sign in",
             body=(
@@ -359,8 +362,9 @@ async def magic(
     )
 
     if cross_device:
+        backend = await resolve_email_backend(session)
         with contextlib.suppress(Exception):
-            email_backend_from_env().send(
+            backend.send(
                 to=email,
                 subject="New Feedbot sign-in",
                 body=(
@@ -567,9 +571,10 @@ async def setup_bootstrap(
     link = f"{base}/magic?email={user.email}&token={raw}"
 
     delivered = False
-    if not is_console_backend_unsafe_for_prod():
+    if await is_email_delivery_safe(session):
+        backend = await resolve_email_backend(session)
         with contextlib.suppress(Exception):
-            email_backend_from_env().send(
+            backend.send(
                 to=user.email,
                 subject="Welcome to Feedbot — sign in",
                 body=(

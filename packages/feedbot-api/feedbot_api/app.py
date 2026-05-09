@@ -68,10 +68,14 @@ async def lifespan(app: FastAPI):
     sub-app we have to drive that lifespan ourselves.
     """
     if is_console_backend_unsafe_for_prod():
+        # Admin can fix this from the UI without a redeploy by saving SMTP
+        # in /admin/settings → it lands in instance_config and the email
+        # resolver picks it up on the next send. The warning is for ops
+        # who haven't done that yet.
         log.warning(
-            "EMAIL_BACKEND=console on a public HTTPS deployment — magic links "
-            "will not be delivered to users. Set EMAIL_BACKEND=smtp before opening "
-            "this instance to non-admins."
+            "EMAIL_BACKEND=console on a public HTTPS deployment and no SMTP "
+            "saved via the admin panel yet. Until SMTP is configured "
+            "(env or /admin/settings), magic links will not reach users."
         )
     async with _mcp.session_manager.run():
         yield

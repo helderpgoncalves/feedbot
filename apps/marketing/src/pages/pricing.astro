@@ -1,0 +1,327 @@
+---
+// /pricing — custom Astro page (not Starlight). The Astro user page wins
+// over content collections for the same path, so deleting pricing.mdx and
+// dropping this here flips the route without redirects.
+import '../styles/landing.css';
+import '@fontsource/geist-sans/400.css';
+import '@fontsource/geist-sans/500.css';
+import '@fontsource/geist-sans/600.css';
+import '@fontsource/geist-mono/400.css';
+import '@fontsource/geist-mono/500.css';
+
+import SiteNav from '../components/SiteNav.astro';
+import SiteFooter from '../components/SiteFooter.astro';
+import ThemeScripts from '../components/ThemeScripts.astro';
+
+const SITE = 'https://feedbot.dev';
+---
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Pricing · Feedbot</title>
+		<meta
+			name="description"
+			content="Self-host Feedbot free forever (MIT). Cloud is hosted, managed, and free during beta. Same product, two delivery modes."
+		/>
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta property="og:title" content="Feedbot Pricing — free for self-host, hosted plan optional" />
+		<meta property="og:description" content="MIT-licensed forever. Cloud free in beta. Migrate either direction." />
+		<meta property="og:type" content="website" />
+		<meta property="og:url" content={`${SITE}/pricing/`} />
+		<meta property="og:image" content={`${SITE}/og.png`} />
+		<meta name="twitter:card" content="summary_large_image" />
+
+		<script is:inline>
+			(() => {
+				try {
+					const stored = localStorage.getItem('feedbot-theme');
+					if (stored === 'light' || stored === 'dark') {
+						document.documentElement.setAttribute('data-theme', stored);
+					}
+				} catch {}
+			})();
+		</script>
+	</head>
+	<body class="landing">
+		<SiteNav current="pricing" />
+
+		{/* ── Page header ──────────────────────────────────────── */}
+		<section class="landing-hero">
+			<a class="hero-pill" href="https://github.com/helderpgoncalves/feedbot">
+				<span class="pill-tag">MIT</span>
+				<span>Free forever for self-host</span>
+				<span class="pill-arrow">→</span>
+			</a>
+			<h1>
+				Same product.<br />
+				<span class="accent">Pick how you run it.</span>
+			</h1>
+			<p class="tagline">
+				Self-host the OSS for $0 forever, or sign up to the managed cloud.
+				Same schema both sides — migrate with a Postgres dump whenever you
+				want.
+			</p>
+		</section>
+
+		{/* ── Comparison cards ─────────────────────────────────── */}
+		<section class="landing-section tight">
+			<div class="landing-pricing">
+				<article class="pricing-card">
+					<h3>Self-host</h3>
+					<div class="pricing-price">
+						<span class="amount">$0</span>
+						<span class="period">/ forever</span>
+					</div>
+					<p class="sub">MIT licensed. You bring the Docker host.</p>
+					<ul class="pricing-list">
+						<li>Unlimited projects, members, feedback rows</li>
+						<li>LLM auto-classification (BYOK OpenAI / Anthropic)</li>
+						<li>Telegram bot + conversational reply loop</li>
+						<li>Streamable-HTTP MCP server</li>
+						<li>Dashboard, REST API, audit log</li>
+						<li>Community support on GitHub Discussions</li>
+					</ul>
+					<a class="landing-button secondary" href="/quickstart-selfhost/">Read the quickstart</a>
+				</article>
+				<article class="pricing-card featured">
+					<span class="pricing-badge">Cloud · Free beta</span>
+					<h3>Hosted</h3>
+					<div class="pricing-price">
+						<span class="amount">$0</span>
+						<span class="period">/ during beta</span>
+					</div>
+					<p class="sub">Managed by us at app.feedbot.dev. Pricing TBD on GA.</p>
+					<ul class="pricing-list">
+						<li>Everything in self-host, plus:</li>
+						<li>Managed Postgres with daily backups</li>
+						<li>Automated upgrades, zero downtime</li>
+						<li>SMTP delivery handled — magic links Just Work</li>
+						<li>EU data residency, DPA on request</li>
+						<li>Email support during business hours (CET)</li>
+					</ul>
+					<a class="landing-button primary" href="https://app.feedbot.dev">Sign up free →</a>
+				</article>
+			</div>
+		</section>
+
+		{/* ── Feature matrix ───────────────────────────────────── */}
+		<section class="landing-section tight">
+			<div class="section-header">
+				<span class="section-eyebrow">Side by side</span>
+				<h2 class="section-title">Feature parity. The cloud just runs the ops.</h2>
+			</div>
+			<div class="pricing-matrix-wrapper">
+				<table class="pricing-matrix">
+					<thead>
+						<tr>
+							<th scope="col">Feature</th>
+							<th scope="col">Self-host</th>
+							<th scope="col">Cloud</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<th scope="row">License</th>
+							<td>MIT</td>
+							<td>MIT (same code)</td>
+						</tr>
+						<tr>
+							<th scope="row">Unlimited projects + members</th>
+							<td><span class="cell-yes" aria-label="yes">✓</span></td>
+							<td><span class="cell-yes" aria-label="yes">✓</span></td>
+						</tr>
+						<tr>
+							<th scope="row">LLM classification (BYOK)</th>
+							<td><span class="cell-yes" aria-label="yes">✓</span></td>
+							<td><span class="cell-yes" aria-label="yes">✓</span></td>
+						</tr>
+						<tr>
+							<th scope="row">Telegram bot</th>
+							<td>Your own bot</td>
+							<td><code>@FeedbotBot</code> (managed)</td>
+						</tr>
+						<tr>
+							<th scope="row">MCP server</th>
+							<td><span class="cell-yes" aria-label="yes">✓</span></td>
+							<td><span class="cell-yes" aria-label="yes">✓</span></td>
+						</tr>
+						<tr>
+							<th scope="row">Postgres</th>
+							<td>Yours</td>
+							<td>Managed + daily backups</td>
+						</tr>
+						<tr>
+							<th scope="row">Email delivery</th>
+							<td>You configure SMTP</td>
+							<td>Handled</td>
+						</tr>
+						<tr>
+							<th scope="row">Upgrades</th>
+							<td><code>docker compose pull && up -d</code></td>
+							<td>Automated, zero downtime</td>
+						</tr>
+						<tr>
+							<th scope="row">SLA</th>
+							<td>—</td>
+							<td>Best-effort during beta</td>
+						</tr>
+						<tr>
+							<th scope="row">DPA</th>
+							<td>You're the controller and processor</td>
+							<td>On request</td>
+						</tr>
+						<tr>
+							<th scope="row">Support</th>
+							<td>GitHub Discussions</td>
+							<td>Email + Discussions</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+		</section>
+
+		{/* ── FAQ ──────────────────────────────────────────────── */}
+		<section class="landing-section tight" id="faq">
+			<div class="section-header">
+				<span class="section-eyebrow">FAQ</span>
+				<h2 class="section-title">Money + ops + migrations.</h2>
+			</div>
+			<div class="landing-faq">
+				<details>
+					<summary>Will self-host stay free?</summary>
+					<p>
+						Yes — forever, MIT. We don't believe in feature-stripping the OSS to
+						push people to a paid tier. The cloud is ops-as-a-service, not a
+						different product.
+					</p>
+				</details>
+				<details>
+					<summary>What's the cloud going to cost on GA?</summary>
+					<p>
+						We're calibrating. Likely a per-seat tier for small teams and a
+						per-feedback tier for high-volume installs. Beta members will see
+						prices ahead of public launch and get a launch discount.
+					</p>
+				</details>
+				<details>
+					<summary>Can I migrate self-host → cloud (or back)?</summary>
+					<p>
+						Yes. <code>pg_dump</code> on one side, restore on the other —
+						same schema both sides. We'll publish a step-by-step migration
+						guide before cloud GA.
+					</p>
+				</details>
+				<details>
+					<summary>What about LLM costs?</summary>
+					<p>
+						Same model both sides: you bring your own OpenAI / Anthropic
+						key, costs are tracked in <code>llm_calls</code>, monthly
+						budget caps prevent surprises. The cloud may later offer a
+						managed LLM with usage billed inline, but BYO-key is the
+						default.
+					</p>
+				</details>
+				<details>
+					<summary>Do you offer support contracts for self-host?</summary>
+					<p>
+						Not at launch. We focus on shipping the product. Once cloud
+						is live we'll evaluate paid OSS support contracts for teams
+						that prefer to run their own infra.
+					</p>
+				</details>
+				<details>
+					<summary>Where is the cloud hosted?</summary>
+					<p>
+						EU (Frankfurt) on a managed Postgres + container platform.
+						SMTP via a transactional provider. DPA available on request
+						to <a href="mailto:hello@feedbot.dev">hello@feedbot.dev</a>.
+					</p>
+				</details>
+			</div>
+		</section>
+
+		{/* ── Final CTA ────────────────────────────────────────── */}
+		<section class="landing-section tight">
+			<div class="landing-cta-final">
+				<h2>Pick the path that fits how you ship.</h2>
+				<p>You can switch later — same code, same data.</p>
+				<div class="landing-cta">
+					<a class="landing-button primary" href="https://app.feedbot.dev">Try the cloud</a>
+					<a class="landing-button secondary" href="/quickstart-selfhost/">Self-host the OSS</a>
+				</div>
+			</div>
+		</section>
+
+		<SiteFooter />
+		<ThemeScripts />
+
+		<style>
+			.pricing-matrix-wrapper {
+				max-width: 1080px;
+				margin: 0 auto;
+				padding: 0 1.5rem;
+				overflow-x: auto;
+			}
+			.pricing-matrix {
+				width: 100%;
+				border-collapse: separate;
+				border-spacing: 0;
+				background: var(--landing-card);
+				border: 1px solid var(--landing-border);
+				border-radius: var(--landing-radius);
+				font-size: 0.925rem;
+				overflow: hidden;
+			}
+			.pricing-matrix th,
+			.pricing-matrix td {
+				padding: 0.875rem 1.25rem;
+				text-align: left;
+				border-bottom: 1px solid var(--landing-border);
+				vertical-align: middle;
+			}
+			.pricing-matrix tr:last-child th,
+			.pricing-matrix tr:last-child td {
+				border-bottom: none;
+			}
+			.pricing-matrix thead th {
+				background: var(--landing-bg-elevated);
+				font-weight: 600;
+				font-size: 0.8rem;
+				text-transform: uppercase;
+				letter-spacing: 0.05em;
+				color: var(--landing-muted);
+				border-bottom: 1px solid var(--landing-border-strong);
+			}
+			.pricing-matrix tbody th {
+				font-weight: 500;
+				color: var(--landing-fg);
+				width: 35%;
+			}
+			.pricing-matrix tbody td {
+				color: var(--landing-muted);
+			}
+			.cell-yes {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				width: 1.25rem;
+				height: 1.25rem;
+				border-radius: 999px;
+				background: color-mix(in srgb, var(--landing-accent) 18%, transparent);
+				color: var(--landing-accent);
+				font-weight: 600;
+				font-size: 0.75rem;
+			}
+			.pricing-matrix code {
+				font-family: var(--landing-font-mono);
+				font-size: 0.825em;
+				background: color-mix(in srgb, var(--landing-fg) 8%, transparent);
+				padding: 0.05em 0.35em;
+				border-radius: 0.25rem;
+				color: var(--landing-fg);
+			}
+		</style>
+	</body>
+</html>

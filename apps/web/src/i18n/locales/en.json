@@ -36,7 +36,17 @@
 		"billing": "Billing",
 		"account": "Account & data",
 		"sign_in": "Sign in",
-		"sign_out": "Sign out"
+		"sign_out": "Sign out",
+		"open_menu": "Open menu",
+		"close_menu": "Close menu"
+	},
+	"theme": {
+		"light": "Light",
+		"dark": "Dark",
+		"system": "System",
+		"menu_label": "Theme",
+		"switch_to_light": "Switch to light theme",
+		"switch_to_dark": "Switch to dark theme"
 	},
 	"account": {
 		"title": "Account & data",

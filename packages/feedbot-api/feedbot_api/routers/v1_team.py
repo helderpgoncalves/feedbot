@@ -56,7 +56,7 @@ from feedbot_api.deps import (
     require_project_admin,
     require_tenant_admin,
 )
-from feedbot_api.email_backend import email_backend_from_env
+from feedbot_api.email_backend import resolve_email_backend
 from feedbot_api.schemas import (
     InviteAcceptIn,
     InviteIn,
@@ -302,8 +302,9 @@ async def create_invite(
     # Best-effort delivery; the invite row is durable.
     tenant = await session.get(Tenant, me.tenant_id)
     workspace_name = tenant.name if tenant else "Feedbot"
+    backend = await resolve_email_backend(session)
     with contextlib.suppress(Exception):
-        email_backend_from_env().send(
+        backend.send(
             to=email,
             subject=f"You've been invited to {workspace_name}",
             body=f"Accept your invite:\n\n{link}\n\nExpires in 7 days.\n",

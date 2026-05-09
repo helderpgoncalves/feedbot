@@ -5,8 +5,18 @@ Two backends:
     magic links to public HTTPS deployments while this backend is selected.
   - `smtp`    — real SMTP (TLS). Required for production.
 
-Selection is driven by the `EMAIL_BACKEND` env var. SMTP credentials are
-read at module-import time but only validated on first send.
+Resolution precedence at every send:
+  1. ``InstanceConfig`` row in the DB (admin panel) — preferred for self-host
+     and any deployment where the operator wants to change SMTP without a
+     redeploy.
+  2. ``EMAIL_BACKEND`` + ``SMTP_*`` env vars — used as a fallback when the
+     DB row is empty, and as an explicit override when the operator wants
+     immutable secrets (Kubernetes, Coolify shared SMTP across tenants).
+
+Routers should call :func:`resolve_email_backend(session)` for normal sends
+and only fall back to :func:`email_backend_from_env` when no session is
+available (rare — the bootstrap endpoint that runs *before* the DB has any
+users still has a session, so that path uses the resolver too).
 """
 
 from __future__ import annotations
@@ -17,6 +27,8 @@ import smtplib
 import ssl
 from email.message import EmailMessage
 from typing import Protocol
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 log = logging.getLogger("feedbot.email")
 
@@ -79,6 +91,7 @@ class SMTPBackend:
 
 
 def email_backend_from_env() -> EmailBackend:
+    """Build a backend purely from env. Use only when no DB session exists."""
     name = os.getenv("EMAIL_BACKEND", "console").lower().strip()
     if name == "smtp":
         return SMTPBackend(
@@ -92,8 +105,71 @@ def email_backend_from_env() -> EmailBackend:
     return ConsoleBackend()
 
 
+async def resolve_email_backend(session: AsyncSession) -> EmailBackend:
+    """Pick the right backend, preferring DB-saved SMTP over env.
+
+    Order:
+      1. ``InstanceConfig`` row has a non-empty ``smtp_host`` → SMTPBackend
+         built from those (decrypted) values.
+      2. ``EMAIL_BACKEND=smtp`` + valid env → SMTPBackend from env.
+      3. ConsoleBackend (logs the message — dev only).
+
+    The DB lookup is one cheap query per send; magic-link issuance is rare
+    enough that we don't bother caching. If you call this from a hot path,
+    cache at the call site.
+    """
+    # Lazy import: orchestrator/settings.py pulls SQLAlchemy + crypto helpers,
+    # so importing it at module load forces those onto every CLI script that
+    # only needs the env-based backend.
+    from feedbot_api.orchestrator import settings as orch_settings
+
+    try:
+        cfg = await orch_settings.load(session)
+    except Exception as err:  # pragma: no cover — DB hiccup, not fatal
+        log.warning("[email] DB lookup failed, falling back to env: %s", err)
+        return email_backend_from_env()
+
+    smtp = cfg.smtp
+    if smtp.is_configured and smtp.sender:
+        port = smtp.port or 587
+        return SMTPBackend(
+            host=smtp.host or "",
+            port=port,
+            username=smtp.user or "",
+            password=smtp.password or "",
+            sender=smtp.sender,
+            starttls=port != 465,
+        )
+
+    return email_backend_from_env()
+
+
+async def is_email_delivery_safe(session: AsyncSession) -> bool:
+    """True when sending email is acceptable for the current deployment.
+
+    Three-way decision:
+      - SMTP backend resolves (env or DB) → True (real delivery).
+      - Console backend AND ``FEEDBOT_BASE_URL`` is not HTTPS → True
+        (dev/local — magic links go to logs and that's fine).
+      - Console backend AND public HTTPS deployment → False (users would
+        never receive the email; the caller should 503 or fall back to
+        rendering the link inline).
+    """
+    backend = await resolve_email_backend(session)
+    if backend.name == "smtp":
+        return True
+    base = os.getenv("FEEDBOT_BASE_URL", "").lower()
+    return not base.startswith("https://")
+
+
 def is_console_backend_unsafe_for_prod() -> bool:
-    """True if EMAIL_BACKEND=console AND FEEDBOT_BASE_URL is https — i.e. unsafe."""
+    """True if env config alone would land us on console backend over HTTPS.
+
+    Kept for callers that don't have a session (rare). Prefer
+    :func:`is_email_delivery_safe` when you do — the env-only check returns
+    True for a deployment that has SMTP saved in the DB but no env vars,
+    which is a false positive and the most common production setup.
+    """
     backend = os.getenv("EMAIL_BACKEND", "console").lower().strip()
     base = os.getenv("FEEDBOT_BASE_URL", "").lower()
     return backend == "console" and base.startswith("https://")

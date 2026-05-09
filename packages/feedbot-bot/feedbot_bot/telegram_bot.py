@@ -237,14 +237,67 @@ async def outbound_loop(app: Application) -> None:
         await asyncio.sleep(OUTBOUND_POLL_SECONDS)
 
 
+CONFIG_POLL_SECONDS = 30
+
+
+async def _wait_for_telegram_token(client: FeedbotClient) -> str:
+    """Block until the API reports a Telegram token is available.
+
+    Self-host deployments may boot the bot container before the admin has
+    finished the setup wizard. Instead of crashing and trapping the operator
+    in a restart loop, we poll the API every ``CONFIG_POLL_SECONDS`` and
+    activate as soon as a token shows up.
+
+    The first iteration logs once at INFO so a casual ``docker logs bot``
+    explains why nothing is happening yet; subsequent waits are silent
+    (DEBUG) to keep the journal clean.
+    """
+    logged_once = False
+    while True:
+        try:
+            cfg = await client.fetch_bot_config()
+        except Exception as exc:
+            log.warning("bot-config fetch failed (will retry): %s", exc)
+            await asyncio.sleep(CONFIG_POLL_SECONDS)
+            continue
+
+        token = cfg.get("token")
+        if token:
+            log.info("Telegram token loaded from admin panel")
+            return token
+
+        if not logged_once:
+            log.info(
+                "Telegram bot is idle. Configure the token in the admin panel "
+                "(Settings → Telegram) — the bot will activate automatically."
+            )
+            logged_once = True
+        await asyncio.sleep(CONFIG_POLL_SECONDS)
+
+
+async def _resolve_telegram_token(settings: BotSettings, client: FeedbotClient) -> str:
+    """Pick the Telegram token: env override first, then DB-backed admin panel."""
+    if settings.telegram_token:
+        return settings.telegram_token
+    return await _wait_for_telegram_token(client)
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
     settings = BotSettings()
-    if not settings.telegram_token or not settings.bot_token:
-        raise SystemExit("TELEGRAM_BOT_TOKEN and FEEDBOT_BOT_TOKEN must be set")
+    if not settings.bot_token:
+        # FEEDBOT_BOT_TOKEN is the bot↔api shared secret. It MUST come from
+        # env: it's how this process proves to the API it's the bot, so it
+        # can't be self-served via the same API.
+        raise SystemExit("FEEDBOT_BOT_TOKEN must be set in the environment")
 
     client = FeedbotClient(settings.api_url, settings.bot_token)
-    app = Application.builder().token(settings.telegram_token).build()
+
+    # Resolve the Telegram token before building the Application — the
+    # python-telegram-bot Application needs the token to construct.
+    telegram_token = asyncio.run(_resolve_telegram_token(settings, client))
+
+    app = Application.builder().token(telegram_token).build()
     app.bot_data["client"] = client
 
     app.add_handler(CommandHandler("start", cmd_start))

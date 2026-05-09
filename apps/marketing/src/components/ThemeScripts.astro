@@ -1,0 +1,21 @@
+---
+// Two scripts:
+//   - Pre-paint: resolve stored theme so we don't flash the default.
+//   - On-load: bind the theme toggle button (id="theme-toggle").
+//
+// Goes inside <body> for the toggle binding; the pre-paint script
+// must be in <head> instead.
+---
+<script is:inline>
+	const toggle = document.getElementById('theme-toggle');
+	toggle?.addEventListener('click', () => {
+		const current =
+			document.documentElement.getAttribute('data-theme') ||
+			(window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+		const next = current === 'dark' ? 'light' : 'dark';
+		document.documentElement.setAttribute('data-theme', next);
+		try {
+			localStorage.setItem('feedbot-theme', next);
+		} catch {}
+	});
+</script>

@@ -53,20 +53,36 @@
 #       • cloudflared tunnel   (no public IP needed)
 #   See docs/DEPLOY-COOLIFY.md for the full walk-through.
 #
-# REQUIRED ENV VARS
+# REQUIRED ENV VARS (set in your platform's secrets UI — Coolify / Dokploy)
+#   Boot-time only. Cannot be configured via the admin panel because the
+#   stack needs them to come up at all.
+#
 #   FEEDBOT_SECRET_KEY      48-byte base64; rotate via `feedbot rotate-secret-key`.
 #   FEEDBOT_BOT_TOKEN       32-byte base64; bot↔api shared secret.
 #   FEEDBOT_DB_PASSWORD     Postgres password.
 #   FEEDBOT_BASE_URL        e.g. https://app.feedbot.dev
 #   FEEDBOT_PUBLIC_URL      same as FEEDBOT_BASE_URL (browser-visible).
-#   FEEDBOT_MARKETING_HOST  e.g. feedbot.dev       (default in compose)
-#   FEEDBOT_APP_HOST        e.g. app.feedbot.dev   (default in compose)
-#   FEEDBOT_INSTALLER_HOST  e.g. get.feedbot.dev   (default in compose)
+#
+# OPERATOR-PROVIDED SHARED SERVICES (cloud-wide, set once)
+#   These power features that ALL tenants use through the operator's
+#   account. Per-user BYOK overrides land in the admin/account panel
+#   and live in the database.
+#
+#   EMAIL_BACKEND=smtp + SMTP_*    shared SMTP for magic-link delivery
+#   TELEGRAM_BOT_TOKEN             token for the global @FeedbotBot
+#   FEEDBOT_TELEGRAM_BOT_USERNAME  e.g. FeedbotBot  (no @)
+#
+# BYOK BY DESIGN
+#   LLM classification keys (OpenAI / Anthropic / etc.) are per-project,
+#   stored encrypted in `project_llm_settings`, and configured by tenants
+#   themselves under /projects/<slug>/llm. The operator never holds these
+#   keys — every tenant pays their own provider bill.
 #
 # OPTIONAL ENV VARS
 #   FEEDBOT_VERSION                image tag for spa/api/bot (default: latest)
-#   EMAIL_BACKEND=smtp + SMTP_*    for magic-link delivery
-#   FEEDBOT_TELEGRAM_BOT_TOKEN     to enable the bot (also `--profile bot`)
+#   FEEDBOT_MARKETING_HOST         default: feedbot.dev
+#   FEEDBOT_APP_HOST               default: app.feedbot.dev
+#   FEEDBOT_INSTALLER_HOST         default: get.feedbot.dev
 #   FEEDBOT_BILLING_ENABLED        flip to true for commercial GA
 #   FEEDBOT_STRIPE_*               required when billing is on (see C2 docs)
 # ─────────────────────────────────────────────────────────────────────
@@ -262,17 +278,24 @@ services:
       com.feedbot.installer: "true"
       com.feedbot.role: "api"
     environment:
+      # ── Boot-time secrets (REQUIRED) ──────────────────────────────
       DATABASE_URL: "postgresql+asyncpg://feedbot:${FEEDBOT_DB_PASSWORD}@db:5432/feedbot"
       FEEDBOT_BASE_URL: ${FEEDBOT_BASE_URL}
       FEEDBOT_SECRET_KEY: ${FEEDBOT_SECRET_KEY}
       FEEDBOT_BOT_TOKEN: ${FEEDBOT_BOT_TOKEN}
       FEEDBOT_DEPLOYMENT: cloud
+      # ── Operator-provided shared services ─────────────────────────
+      # Set once in the platform's secrets UI; serves every tenant.
       EMAIL_BACKEND: ${EMAIL_BACKEND:-console}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
+      # No OPENAI_API_KEY here on purpose — LLM classification is BYOK
+      # per project (configured at /projects/<slug>/llm in the dashboard,
+      # encrypted in project_llm_settings). Cloud tenants pay their own
+      # OpenAI/Anthropic bills; the operator never sees their keys.
     depends_on:
       db:
         condition: service_healthy
@@ -329,8 +352,8 @@ services:
       com.feedbot.installer: "true"
       com.feedbot.role: "installer"
 
-  # Bot stays opt-in. To enable: set FEEDBOT_TELEGRAM_BOT_TOKEN in the
-  # platform env vars and activate the `bot` compose profile.
+  # Bot stays opt-in. To enable: set TELEGRAM_BOT_TOKEN in the platform
+  # env vars and activate the `bot` compose profile.
   bot:
     <<: *defaults
     profiles: ["bot"]
