@@ -26,6 +26,7 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from feedbot_core import audit, auth_sessions
+from feedbot_core.billing import QuotaExceeded, assert_quota
 from feedbot_core.models import Invite, Project, Role, Tenant, User
 from feedbot_core.repos import (
     add_project_member,
@@ -43,6 +44,7 @@ from feedbot_core.repos import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from feedbot_api.billing import http_402_from
 from feedbot_api.cookies import (
     client_ip,
     client_user_agent,
@@ -271,6 +273,13 @@ async def create_invite(
     existing = await get_user_by_email(session, email)
     if existing and existing.tenant_id == me.tenant_id:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "user already in this tenant")
+
+    # Member quota counts active users + pending invites — sending the invite
+    # already reserves the seat. No-op on self-host (billing disabled).
+    try:
+        await assert_quota(session, me.tenant_id, "member")
+    except QuotaExceeded as exc:
+        raise http_402_from(exc) from exc
 
     project_id: int | None = None
     if body.project_slug:

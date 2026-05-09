@@ -21,6 +21,7 @@ from feedbot_core.models import (
     ProjectMember,
     Role,
     Severity,
+    Subscription,
     Tenant,
     User,
 )
@@ -742,3 +743,70 @@ async def update_instance_config(
     row.updated_at = datetime.now(UTC)
     await session.flush()
     return row
+
+
+# ─── Subscriptions ──────────────────────────────────────────────────────────
+
+
+async def get_subscription_for_tenant(
+    session: AsyncSession, tenant_id: int
+) -> Subscription | None:
+    row = await session.execute(
+        select(Subscription).where(Subscription.tenant_id == tenant_id)
+    )
+    return row.scalar_one_or_none()
+
+
+async def ensure_subscription(
+    session: AsyncSession,
+    tenant_id: int,
+    *,
+    plan: str = "free",
+    status: str = "active",
+) -> Subscription:
+    """Return the existing subscription, or create a fresh one.
+
+    Idempotent — safe to call from signup and from a webhook replay. The
+    UNIQUE(tenant_id) constraint guarantees there is at most one row.
+    """
+    existing = await get_subscription_for_tenant(session, tenant_id)
+    if existing is not None:
+        return existing
+    sub = Subscription(tenant_id=tenant_id, plan=plan, status=status)
+    session.add(sub)
+    await session.flush()
+    return sub
+
+
+async def increment_feedback_counter(
+    session: AsyncSession, tenant_id: int
+) -> None:
+    """Bump the rolling monthly feedback counter for this tenant.
+
+    Caller is the ingest path. No-op if there's no subscription row
+    (self-host or pre-billing cloud beta) — the counter only matters when
+    quota enforcement is on.
+    """
+    sub = await get_subscription_for_tenant(session, tenant_id)
+    if sub is None:
+        return
+    sub.monthly_feedback_count += 1
+    await session.flush()
+
+
+async def reset_monthly_counters_if_due(
+    session: AsyncSession, tenant_id: int, *, now: datetime | None = None
+) -> Subscription | None:
+    """Reset the rolling counter when the period has rolled over.
+
+    Called by the Stripe ``invoice.payment_succeeded`` webhook (C2.3) and
+    available as a manual nudge for ops. Sets ``monthly_feedback_reset_at``
+    to ``now`` and zeroes the counter.
+    """
+    sub = await get_subscription_for_tenant(session, tenant_id)
+    if sub is None:
+        return None
+    sub.monthly_feedback_count = 0
+    sub.monthly_feedback_reset_at = now or datetime.now(UTC)
+    await session.flush()
+    return sub

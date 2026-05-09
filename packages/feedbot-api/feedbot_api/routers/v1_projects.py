@@ -18,6 +18,7 @@ import os
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from feedbot_core import audit
+from feedbot_core.billing import QuotaExceeded, assert_quota
 from feedbot_core.models import Project, User
 from feedbot_core.repos import (
     create_project,
@@ -34,6 +35,7 @@ from feedbot_core.repos import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from feedbot_api.billing import http_402_from
 from feedbot_api.cookies import client_ip, client_user_agent
 from feedbot_api.deps import (
     get_session,
@@ -91,6 +93,10 @@ async def create_project_(
     existing = await get_project_by_slug(session, me.tenant_id, body.slug)
     if existing is not None:
         raise HTTPException(status.HTTP_409_CONFLICT, "slug already exists")
+    try:
+        await assert_quota(session, me.tenant_id, "project")
+    except QuotaExceeded as exc:
+        raise http_402_from(exc) from exc
     project = await create_project(session, me.tenant_id, slug=body.slug, name=body.name)
     await audit.log_event(
         session,

@@ -4,6 +4,7 @@
 	"mcpPublicUrl": "",
 	"telegramBotUsername": null,
 	"allowSignup": false,
+	"billingEnabled": false,
 	"deployment": "self-host",
 	"buildSha": null
 }

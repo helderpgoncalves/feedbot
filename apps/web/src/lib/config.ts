@@ -27,6 +27,12 @@ export interface RuntimeConfig {
 	telegramBotUsername: string | null;
 	/** Whether public sign-up is allowed. Cloud = true. Self-host = false (default). */
 	allowSignup: boolean;
+	/**
+	 * Whether billing UI / Stripe code paths render in this deployment.
+	 * Self-host = false (default) — no quota banners, no /billing route, no
+	 * "Manage subscription" button. Cloud commercial = true. Cloud free-beta = false.
+	 */
+	billingEnabled: boolean;
 	/** Cloud-only: shows the upgrade banner / plan name in the UI. */
 	deployment: 'self-host' | 'cloud';
 	/** Optional commit SHA shown in footer for traceability. */
@@ -39,6 +45,7 @@ const FALLBACK_CONFIG: RuntimeConfig = {
 	mcpPublicUrl: '',
 	telegramBotUsername: null,
 	allowSignup: false,
+	billingEnabled: false,
 	deployment: 'self-host',
 	buildSha: null,
 };

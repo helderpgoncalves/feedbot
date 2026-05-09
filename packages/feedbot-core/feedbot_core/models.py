@@ -66,6 +66,9 @@ class Tenant(Base):
 
     users: Mapped[list["User"]] = relationship(back_populates="tenant", cascade="all, delete-orphan")
     projects: Mapped[list["Project"]] = relationship(back_populates="tenant", cascade="all, delete-orphan")
+    subscription: Mapped["Subscription | None"] = relationship(
+        back_populates="tenant", cascade="all, delete-orphan", uselist=False
+    )
 
 
 class User(Base):
@@ -456,3 +459,59 @@ class InstanceConfig(Base):
     )
 
     __table_args__ = (CheckConstraint("id = 1", name="ck_instance_config_singleton"),)
+
+
+class Subscription(Base):
+    """Per-tenant plan + Stripe linkage.
+
+    The table exists in every Feedbot deployment (cloud and self-host) so
+    we don't carry a conditional schema. Self-host never inserts a row —
+    ``assert_quota`` short-circuits on ``FEEDBOT_BILLING_ENABLED=false``
+    and the table stays empty for the lifetime of the deployment.
+
+    ``monthly_feedback_count`` is bumped inline by the ingest path inside
+    the same transaction as the feedback insert. The Stripe webhook
+    ``invoice.payment_succeeded`` resets it (phase C2.3).
+    """
+
+    __tablename__ = "subscriptions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        unique=True,
+        index=True,
+    )
+
+    # Plan key matches feedbot_core.billing.plans.PLANS. Stored as a
+    # string (not an enum) so adding a tier is zero DDL.
+    plan: Mapped[str] = mapped_column(String(32), default="free", server_default="free")
+    # Mirrors Stripe statuses: trialing | active | past_due | canceled |
+    # unpaid | incomplete. Cloud free-beta uses 'active' with no Stripe row.
+    status: Mapped[str] = mapped_column(
+        String(32), default="active", server_default="active"
+    )
+
+    stripe_customer_id: Mapped[str | None] = mapped_column(
+        String(64), unique=True, nullable=True
+    )
+    stripe_subscription_id: Mapped[str | None] = mapped_column(
+        String(64), unique=True, nullable=True
+    )
+    current_period_end: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    monthly_feedback_count: Mapped[int] = mapped_column(default=0, server_default="0")
+    monthly_feedback_reset_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    tenant: Mapped[Tenant] = relationship(back_populates="subscription")

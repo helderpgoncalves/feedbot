@@ -9,6 +9,7 @@ via /v1/internal/redeem-link, triggered by /start link_<token> in Telegram).
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from feedbot_core.billing import QuotaExceeded, assert_quota
 from feedbot_core.llm import classify_feedback
 from feedbot_core.models import FeedbackType, Project, Severity
 from feedbot_core.repos import (
@@ -16,6 +17,7 @@ from feedbot_core.repos import (
     find_feedbacks_pending_done_notification,
     find_feedbacks_with_pending_reply,
     get_feedback_by_outbound_message,
+    increment_feedback_counter,
     mark_done_notified,
     mark_reply_delivered,
     project_for_chat,
@@ -25,6 +27,7 @@ from feedbot_core.repos import (
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from feedbot_api.billing import http_402_from
 from feedbot_api.deps import get_session, require_bot_token
 from feedbot_api.routers.v1 import _to_out
 from feedbot_api.schemas import FeedbackOut
@@ -96,6 +99,15 @@ async def ingest(body: IngestIn, session: AsyncSession = Depends(get_session)):
     if not project:
         raise HTTPException(404, "chat is not linked to any project")
 
+    # Quota check before any side effects. No-op on self-host (billing
+    # disabled). On cloud commercial, 402 here surfaces the limit; the
+    # bot reads the structured detail and posts a friendly chat message
+    # rather than dropping silently (handled in feedbot-bot, phase C0.3).
+    try:
+        await assert_quota(session, project.tenant_id, "feedback")
+    except QuotaExceeded as exc:
+        raise http_402_from(exc) from exc
+
     fb = await create_feedback(
         session,
         project_id=project.id,
@@ -139,6 +151,10 @@ async def ingest(body: IngestIn, session: AsyncSession = Depends(get_session)):
             c.sentiment,
             c.tags,
         )
+
+    # Inline counter bump — same transaction as the feedback insert. No-op
+    # on self-host because the tenant has no Subscription row.
+    await increment_feedback_counter(session, project.tenant_id)
 
     return _to_out(fb, project)
 
