@@ -37,6 +37,7 @@ from feedbot_api.routers import (
     v1_admin_proxy,
     v1_admin_system,
     v1_auth,
+    v1_billing,
     v1_feedbacks,
     v1_llm,
     v1_projects,
@@ -90,6 +91,8 @@ app.include_router(v1_projects.router)
 app.include_router(v1_feedbacks.router)
 app.include_router(v1_llm.router)
 app.include_router(v1_team.router)
+app.include_router(v1_billing.router)
+app.include_router(v1_billing.webhook_router)
 app.include_router(v1_admin_email.router)
 app.include_router(v1_admin_bot.router)
 app.include_router(v1_admin_proxy.router)

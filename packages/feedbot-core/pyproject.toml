@@ -13,6 +13,12 @@ dependencies = [
     "cryptography>=42",
     "openai>=1.40",
     "anthropic>=0.34",
+    # Cloud billing (gated at runtime by FEEDBOT_BILLING_ENABLED). The
+    # import is local to feedbot_core.billing.stripe_client and never
+    # touched on self-host code paths, but the package is installed
+    # everywhere because (a) it has no runtime side effects on import
+    # and (b) it keeps the test matrix simple.
+    "stripe>=12.0",
 ]
 
 [build-system]

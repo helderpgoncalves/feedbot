@@ -21,6 +21,7 @@ from feedbot_core.models import (
     ProjectMember,
     Role,
     Severity,
+    StripeProcessedEvent,
     Subscription,
     Tenant,
     User,
@@ -850,3 +851,93 @@ async def reset_monthly_counters_if_due(
     sub.monthly_feedback_reset_at = now or datetime.now(UTC)
     await session.flush()
     return sub
+
+
+async def get_subscription_by_stripe_customer(
+    session: AsyncSession, stripe_customer_id: str
+) -> Subscription | None:
+    row = await session.execute(
+        select(Subscription).where(
+            Subscription.stripe_customer_id == stripe_customer_id
+        )
+    )
+    return row.scalar_one_or_none()
+
+
+async def get_subscription_by_stripe_subscription(
+    session: AsyncSession, stripe_subscription_id: str
+) -> Subscription | None:
+    row = await session.execute(
+        select(Subscription).where(
+            Subscription.stripe_subscription_id == stripe_subscription_id
+        )
+    )
+    return row.scalar_one_or_none()
+
+
+async def update_subscription_from_stripe(
+    session: AsyncSession,
+    *,
+    tenant_id: int,
+    stripe_customer_id: str | None = None,
+    stripe_subscription_id: str | None = None,
+    plan: str | None = None,
+    status: str | None = None,
+    current_period_end: datetime | None = None,
+) -> Subscription:
+    """Upsert the local Subscription row from a Stripe event payload.
+
+    Idempotent — webhook handlers always pass through here so a replayed
+    event re-applies the same fields without surprises.
+    """
+    sub = await get_subscription_for_tenant(session, tenant_id)
+    if sub is None:
+        sub = Subscription(tenant_id=tenant_id)
+        session.add(sub)
+
+    if stripe_customer_id is not None:
+        sub.stripe_customer_id = stripe_customer_id
+    if stripe_subscription_id is not None:
+        sub.stripe_subscription_id = stripe_subscription_id
+    if plan is not None:
+        sub.plan = plan
+    if status is not None:
+        sub.status = status
+    if current_period_end is not None:
+        sub.current_period_end = current_period_end
+    await session.flush()
+    return sub
+
+
+# ─── Stripe webhook dedupe ──────────────────────────────────────────────────
+
+
+async def stripe_event_already_processed(
+    session: AsyncSession, event_id: str
+) -> bool:
+    """Return True when this Stripe event ID has already been recorded.
+
+    Caller should treat True as "200 OK, skip dispatch" — Stripe retries
+    until it sees a 2xx, so swallowing replays is the contract.
+    """
+    row = await session.execute(
+        select(StripeProcessedEvent.event_id).where(
+            StripeProcessedEvent.event_id == event_id
+        )
+    )
+    return row.scalar_one_or_none() is not None
+
+
+async def mark_stripe_event_processed(
+    session: AsyncSession, *, event_id: str, event_type: str | None
+) -> None:
+    """Record that we've handled this Stripe event.
+
+    Caller should call this **after** the side effects committed
+    successfully. If the side-effect transaction rolls back, this row
+    rolls back with it and a Stripe replay can retry.
+    """
+    session.add(
+        StripeProcessedEvent(event_id=event_id, event_type=event_type)
+    )
+    await session.flush()

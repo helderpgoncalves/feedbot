@@ -146,6 +146,64 @@ class SignupOut(BaseModel):
     )
 
 
+class BillingLimits(BaseModel):
+    """Plan limits exposed to the SPA. ``None`` means unlimited."""
+
+    project_limit: int | None
+    monthly_feedback_limit: int | None
+    member_limit: int | None
+
+
+class BillingUsage(BaseModel):
+    """Current usage snapshot — drives progress bars in the SPA."""
+
+    projects: int
+    monthly_feedback: int
+    members: int
+
+
+class SubscriptionOut(BaseModel):
+    """Response from ``GET /v1/billing/subscription``.
+
+    On self-host (billing disabled), ``plan='self_host'`` and both
+    ``limits`` + ``usage`` are ``None`` — the SPA renders a "no limits"
+    state without conditional logic.
+    """
+
+    plan: str
+    plan_display_name: str
+    status: str
+    current_period_end: datetime | None
+    trial_end: datetime | None
+    limits: BillingLimits | None
+    usage: BillingUsage | None
+    cancel_at_period_end: bool
+
+
+class PortalOut(BaseModel):
+    """Response from ``POST /v1/billing/portal``."""
+
+    url: str = Field(
+        description="Stripe-hosted billing portal session URL. Single use; expires."
+    )
+
+
+class CheckoutIn(BaseModel):
+    """Body for ``POST /v1/billing/checkout`` — start an upgrade flow."""
+
+    plan: str = Field(
+        description="Target plan key (free|pro|team). 'free' is rejected.",
+    )
+
+
+class CheckoutOut(BaseModel):
+    """Response from ``POST /v1/billing/checkout``."""
+
+    url: str = Field(
+        description="Stripe-hosted Checkout session URL. The SPA navigates here."
+    )
+
+
 class SessionOut(BaseModel):
     """One row from ``GET /v1/auth/sessions``.
 

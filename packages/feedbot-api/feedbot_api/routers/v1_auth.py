@@ -19,12 +19,15 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
 from feedbot_core import audit, auth_sessions
 from feedbot_core.models import Tenant, User
+from feedbot_core.billing import is_billing_enabled
+from feedbot_core.billing.settings import stripe_trial_days
 from feedbot_core.repos import (
     TenantAlreadyExists,
     bootstrap_owner,
     consume_magic_link,
     count_users,
     create_tenant_with_owner,
+    ensure_subscription,
     get_user_by_email,
     issue_magic_link,
     list_projects_for_user,
@@ -235,6 +238,41 @@ async def signup(
         user_agent=client_user_agent(request),
         details={"email": user.email, "channel": "spa"},
     )
+
+    # Cloud commercial: provision Stripe customer + free-plan Subscription
+    # row immediately so the dashboard can offer a "Start free trial" CTA
+    # on first sign-in. Failures here are best-effort: a missing Stripe
+    # customer can be backfilled by the first /billing/checkout call.
+    if is_billing_enabled():
+        from feedbot_core.billing.stripe_client import (
+            StripeError,
+            create_customer,
+        )
+
+        sub = await ensure_subscription(
+            session, user.tenant_id, plan="free", status="active"
+        )
+        if not sub.stripe_customer_id:
+            try:
+                customer = await create_customer(
+                    email=user.email,
+                    tenant_id=user.tenant_id,
+                    name=body.tenant_name.strip() or None,
+                    idempotency_key=f"customer-{user.tenant_id}",
+                )
+                sub.stripe_customer_id = customer.id
+                await session.flush()
+            except StripeError:
+                log.warning(
+                    "stripe_customer_create_failed_during_signup tenant=%s",
+                    user.tenant_id,
+                )
+
+        # Trial-days surfaced via env so we can run a 7-day push without
+        # redeploying. Reserved for use by the SPA's "you have N days
+        # left" banner; the actual trial subscription is created when
+        # the user clicks "Upgrade" and goes through Checkout.
+        _ = stripe_trial_days()
 
     token_raw = secrets.token_urlsafe(24)
     await issue_magic_link(session, user.email, token_raw, nonce_hash=nonce_hash)

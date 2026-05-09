@@ -515,3 +515,24 @@ class Subscription(Base):
     )
 
     tenant: Mapped[Tenant] = relationship(back_populates="subscription")
+
+
+class StripeProcessedEvent(Base):
+    """Dedupe ledger for incoming Stripe webhook events.
+
+    Stripe retries every webhook on non-2xx and on its own internal
+    schedule, so handlers must be idempotent. The simplest way to
+    enforce that is to record each ``event.id`` we've already processed
+    and reject duplicates at the DB layer (PRIMARY KEY conflict).
+
+    Self-host gets this table empty and ignores it — the table costs
+    nothing on deployments that never receive a Stripe webhook.
+    """
+
+    __tablename__ = "stripe_processed_events"
+
+    event_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    event_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    processed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
