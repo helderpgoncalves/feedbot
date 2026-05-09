@@ -34,8 +34,33 @@
 		"security": "Security",
 		"settings": "Settings",
 		"billing": "Billing",
+		"account": "Account & data",
 		"sign_in": "Sign in",
 		"sign_out": "Sign out"
+	},
+	"account": {
+		"title": "Account & data",
+		"subtitle": "Export everything this workspace owns, or permanently delete it.",
+		"privacy_prefix": "We process this data per our",
+		"privacy_link": "privacy policy",
+		"export": {
+			"title": "Export your data",
+			"subtitle": "GDPR-friendly: one zip with feedback, projects, members, audit log, and LLM-call metadata.",
+			"body": "API key secrets are never exported (only their public prefix). Limit: one export per day.",
+			"cta": "Download zip",
+			"preparing": "Preparing…"
+		},
+		"danger": {
+			"title": "Danger zone",
+			"subtitle": "Deleting this workspace cancels any active subscription and removes every row we hold for it. This is irreversible.",
+			"cta": "Delete workspace",
+			"confirm_title": "Delete this workspace permanently?",
+			"confirm_body": "Type {{email}} below to confirm. There is no undo — every project, feedback item, member, and key tied to this workspace will be erased.",
+			"confirm_label": "Type your email to confirm",
+			"confirm_cta": "Delete workspace",
+			"deleting": "Deleting…",
+			"failed_title": "Deletion failed"
+		}
 	},
 	"billing": {
 		"title": "Billing",

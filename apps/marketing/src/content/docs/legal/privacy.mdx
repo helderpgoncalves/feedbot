@@ -1,0 +1,97 @@
+---
+title: Privacy Policy
+description: What Feedbot Cloud collects, why, where it's stored, and how to get it out or delete it. Self-hosters keep all data on their own infrastructure.
+lastUpdated: 2026-05-09
+---
+
+> **Plain-English summary.** Feedbot Cloud holds your feedback, your
+> teammates' emails, and the metadata needed to run the service. We use
+> Stripe (billing) and one email provider (Resend or Postmark) as
+> sub-processors. Self-hosters keep all data on their own infrastructure
+> and don't share any of it with us. EU residents: this policy is GDPR
+> compliant and you have a right to export and delete your workspace
+> from the dashboard at any time.
+
+## 1. Scope
+
+This policy applies to **app.feedbot.dev** (Feedbot Cloud). Self-hosting
+Feedbot under the MIT license keeps everything on your infrastructure;
+we don't see or process any of it.
+
+## 2. Data we collect
+
+| Category | Examples | Purpose |
+|---|---|---|
+| Identity | Email, workspace name | Sign-in, ownership of your tenant |
+| Feedback content | Feedback titles, bodies, replies, classification | The product itself |
+| Telegram metadata | `chat_id`, message IDs, sender ID | Routing inbound feedback to the right project |
+| Operational | IP, user-agent, audit log | Security forensics, rate-limiting |
+| Billing | Stripe customer ID, plan, subscription state | Charging your subscription |
+
+We do **not** store: passwords (we use magic links), card numbers (Stripe
+hosts those), Telegram bot tokens belonging to other workspaces, or
+content from chats not bound to a Feedbot project.
+
+## 3. How long we keep it
+
+- Active workspaces: as long as the workspace exists.
+- Deleted workspaces: cascade-deleted within 30 days; one-year retention
+  on the audit log of admin actions for security forensics.
+- Backups: rolling 30-day window.
+
+## 4. Where it's stored
+
+Primary storage is in the EU (servers operated by our infrastructure
+provider). Stripe processes billing data globally; Resend / Postmark
+process the contents of magic-link and notification emails (we don't
+send transactional content beyond the link itself).
+
+## 5. Sub-processors
+
+| Sub-processor | Purpose | Data shared |
+|---|---|---|
+| [Stripe](https://stripe.com) | Subscription billing | Email, plan, payment events |
+| [Resend](https://resend.com) | Transactional email | Recipient email + the message body |
+| [Coolify-managed host](https://coolify.io) | Compute & DB | Everything in your workspace, encrypted at rest |
+| [Telegram](https://telegram.org) | Inbound message channel | Whatever your users post in the chat |
+
+A signed DPA is available on request — see Contact below.
+
+## 6. Your rights (GDPR + similar)
+
+You can:
+
+- **Export** every row we hold for your workspace as a single ZIP
+  (`Account & data → Export your data` in the dashboard).
+- **Delete** the workspace and trigger cascade deletion
+  (`Account & data → Danger zone`). Audit retention as in §3.
+- **Object or restrict** processing of your data — open a GitHub
+  Discussion or email us.
+- **Lodge a complaint** with your local data protection authority.
+
+## 7. Cookies & tracking
+
+We use exactly two cookies on **app.feedbot.dev**:
+
+1. `fb_session` — strict-same-site session cookie, httpOnly. Set after
+   you sign in. Removed when you sign out or the session expires.
+2. `mlnonce` — short-lived nonce that binds a magic-link click to the
+   browser that requested it. Cleared on sign-in.
+
+Neither is used for analytics or advertising. The marketing site
+(feedbot.dev) doesn't set tracking cookies either.
+
+## 8. Children
+
+Feedbot is a B2B product. We don't knowingly process data from anyone
+under 16. Don't use the service if you're under that age.
+
+## 9. Changes to this policy
+
+We update this page on material changes and bump the `lastUpdated` date
+above. Owners are emailed at least 14 days before changes take effect.
+
+## 10. Contact
+
+Privacy questions, DPA requests, or complaints:
+**[email protected]**.

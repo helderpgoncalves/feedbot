@@ -42,6 +42,7 @@ from feedbot_api.routers import (
     v1_llm,
     v1_projects,
     v1_team,
+    v1_tenant,
 )
 from feedbot_api.security_headers import SecurityHeadersMiddleware
 
@@ -93,6 +94,7 @@ app.include_router(v1_llm.router)
 app.include_router(v1_team.router)
 app.include_router(v1_billing.router)
 app.include_router(v1_billing.webhook_router)
+app.include_router(v1_tenant.router)
 app.include_router(v1_admin_email.router)
 app.include_router(v1_admin_bot.router)
 app.include_router(v1_admin_proxy.router)

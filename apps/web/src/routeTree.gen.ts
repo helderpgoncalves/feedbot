@@ -16,6 +16,7 @@ import { Route as authedTeamRouteImport } from './routes/(authed)/team'
 import { Route as authedSettingsRouteImport } from './routes/(authed)/settings'
 import { Route as authedSecurityRouteImport } from './routes/(authed)/security'
 import { Route as authedBillingRouteImport } from './routes/(authed)/billing'
+import { Route as authedAccountRouteImport } from './routes/(authed)/account'
 import { Route as authSignupRouteImport } from './routes/(auth)/signup'
 import { Route as authSetupRouteImport } from './routes/(auth)/setup'
 import { Route as authMagicRouteImport } from './routes/(auth)/magic'
@@ -60,6 +61,11 @@ const authedSecurityRoute = authedSecurityRouteImport.update({
 const authedBillingRoute = authedBillingRouteImport.update({
   id: '/billing',
   path: '/billing',
+  getParentRoute: () => authedRouteRoute,
+} as any)
+const authedAccountRoute = authedAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
   getParentRoute: () => authedRouteRoute,
 } as any)
 const authSignupRoute = authSignupRouteImport.update({
@@ -129,6 +135,7 @@ export interface FileRoutesByFullPath {
   '/magic': typeof authMagicRoute
   '/setup': typeof authSetupRoute
   '/signup': typeof authSignupRoute
+  '/account': typeof authedAccountRoute
   '/billing': typeof authedBillingRoute
   '/security': typeof authedSecurityRoute
   '/settings': typeof authedSettingsRouteWithChildren
@@ -148,6 +155,7 @@ export interface FileRoutesByTo {
   '/magic': typeof authMagicRoute
   '/setup': typeof authSetupRoute
   '/signup': typeof authSignupRoute
+  '/account': typeof authedAccountRoute
   '/billing': typeof authedBillingRoute
   '/security': typeof authedSecurityRoute
   '/settings': typeof authedSettingsRouteWithChildren
@@ -170,6 +178,7 @@ export interface FileRoutesById {
   '/(auth)/magic': typeof authMagicRoute
   '/(auth)/setup': typeof authSetupRoute
   '/(auth)/signup': typeof authSignupRoute
+  '/(authed)/account': typeof authedAccountRoute
   '/(authed)/billing': typeof authedBillingRoute
   '/(authed)/security': typeof authedSecurityRoute
   '/(authed)/settings': typeof authedSettingsRouteWithChildren
@@ -191,6 +200,7 @@ export interface FileRouteTypes {
     | '/magic'
     | '/setup'
     | '/signup'
+    | '/account'
     | '/billing'
     | '/security'
     | '/settings'
@@ -210,6 +220,7 @@ export interface FileRouteTypes {
     | '/magic'
     | '/setup'
     | '/signup'
+    | '/account'
     | '/billing'
     | '/security'
     | '/settings'
@@ -231,6 +242,7 @@ export interface FileRouteTypes {
     | '/(auth)/magic'
     | '/(auth)/setup'
     | '/(auth)/signup'
+    | '/(authed)/account'
     | '/(authed)/billing'
     | '/(authed)/security'
     | '/(authed)/settings'
@@ -300,6 +312,13 @@ declare module '@tanstack/react-router' {
       path: '/billing'
       fullPath: '/billing'
       preLoaderRoute: typeof authedBillingRouteImport
+      parentRoute: typeof authedRouteRoute
+    }
+    '/(authed)/account': {
+      id: '/(authed)/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof authedAccountRouteImport
       parentRoute: typeof authedRouteRoute
     }
     '/(auth)/signup': {
@@ -439,6 +458,7 @@ const authedProjectsSlugRouteWithChildren =
   authedProjectsSlugRoute._addFileChildren(authedProjectsSlugRouteChildren)
 
 interface authedRouteRouteChildren {
+  authedAccountRoute: typeof authedAccountRoute
   authedBillingRoute: typeof authedBillingRoute
   authedSecurityRoute: typeof authedSecurityRoute
   authedSettingsRoute: typeof authedSettingsRouteWithChildren
@@ -448,6 +468,7 @@ interface authedRouteRouteChildren {
 }
 
 const authedRouteRouteChildren: authedRouteRouteChildren = {
+  authedAccountRoute: authedAccountRoute,
   authedBillingRoute: authedBillingRoute,
   authedSecurityRoute: authedSecurityRoute,
   authedSettingsRoute: authedSettingsRouteWithChildren,

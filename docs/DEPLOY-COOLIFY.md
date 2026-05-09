@@ -277,6 +277,63 @@ You can now:
 
 ---
 
+## 8. Operational hardening (recommended for paying customers)
+
+Closed-beta works on `docker compose logs` + manual checks. Before
+announcing public commercial GA, set up the four basics below.
+
+### 8.1 Error tracking — Sentry
+
+Backend + SPA. Add a Sentry project, paste the DSN as
+`FEEDBOT_SENTRY_DSN` in Coolify, restart. The `feedbot_api` boot wires
+Sentry's FastAPI integration when this var is set; the SPA reads
+`sentryDsn` from `/config.json` and initialises lazy after first paint
+to avoid blocking TTI. Self-host leaves the var unset → Sentry never
+loads.
+
+### 8.2 Structured logs — Loki / Better Stack / similar
+
+`docker compose logs feedbot-api` is enough for one container, but as
+soon as you scale workers or add the bot service, ship logs to a
+managed sink. Coolify supports Vector or Promtail side-cars; configure
+either to forward `stdout` from `feedbot-app` to your sink. Search by
+`request_id` (the API tags every log line) when reproducing customer
+reports.
+
+### 8.3 Status page
+
+Most install: a free **Better Stack** monitor pinging
+`https://app.feedbot.dev/healthz` every 30s with a public status page
+at `status.feedbot.dev`. Add it to the marketing site footer (`apps/marketing/src/pages/index.astro`)
+and link it from any incident-response tooling.
+
+### 8.4 Restore drill — the critical bit
+
+Backups exist (step 6.1). **A backup you've never restored is just a
+file**. Once before public launch, exercise the full recipe:
+
+```bash
+# On a fresh disposable host:
+ssh staging
+docker compose -f docker-compose.cloud.yml up -d db
+docker compose exec -T db pg_restore -U feedbot -d feedbot --clean --no-owner < /data/backups/<latest>.dump
+docker compose -f docker-compose.cloud.yml up -d
+curl -sf https://staging.feedbot.dev/healthz | jq
+```
+
+Document the exact commands you used in `docs/RESTORE-RUNBOOK.md` (a
+template is included in the repo). When a real incident hits at 3 AM,
+"copy from runbook" beats "remember the syntax".
+
+### 8.5 On-call rotation (optional, useful past 10-20 paying customers)
+
+Until then, a Slack channel + a "best-effort, EU business hours" SLA in
+the marketing site is honest and sufficient. Once on-call is stood up,
+update [Terms of Service](/legal/terms/) §6 and the marketing site to
+match.
+
+---
+
 ## Troubleshooting
 
 **TLS cert isn't issuing.** Check Coolify → Application → Logs. Most common
@@ -305,5 +362,11 @@ redeploy.
 - Wire up SMTP via the env-var block in step 2.
 - Connect a Telegram bot: set `TELEGRAM_BOT_TOKEN` env var, then enable the
   `bot` profile in Coolify → Application → Compose Profiles.
-- For multi-tenant + billing, set `FEEDBOT_BILLING_ENABLED=true` (UI placeholder
-  for v0; billing implementation lands in a follow-up release).
+- For multi-tenant + billing, set `FEEDBOT_BILLING_ENABLED=true` plus the
+  Stripe env vars (`FEEDBOT_STRIPE_SECRET_KEY`, `FEEDBOT_STRIPE_WEBHOOK_SECRET`,
+  `FEEDBOT_STRIPE_PRICE_PRO`, `FEEDBOT_STRIPE_PRICE_TEAM`). Configure a
+  Stripe webhook endpoint pointing at
+  `https://app.feedbot.dev/v1/internal/stripe-webhook` and subscribe to
+  `customer.subscription.*` and `invoice.payment_*` events.
+- Walk through §8 (Sentry + structured logs + status page + restore drill)
+  before announcing commercial GA.

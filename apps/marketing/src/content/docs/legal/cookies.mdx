@@ -1,0 +1,32 @@
+---
+title: Cookies
+description: Feedbot uses two strictly-necessary cookies for sign-in. No analytics, no advertising, no third-party cookies.
+lastUpdated: 2026-05-09
+---
+
+We use **two cookies on app.feedbot.dev**, both strictly necessary for
+the service to function. We don't use cookies for analytics or
+advertising. The marketing site (**feedbot.dev**) doesn't set any
+tracking cookies either.
+
+| Cookie | Set when | Purpose | Duration | Third-party? |
+|---|---|---|---|---|
+| `fb_session` | After magic-link sign-in | Authenticates your dashboard requests | Up to 30 days; cleared on sign-out | No |
+| `mlnonce` | When you request a magic link | Binds the magic link to the browser that asked for it (PKCE) | ~15 minutes | No |
+
+Both cookies are `Secure`, `HttpOnly`, `SameSite=Strict` — they're not
+readable by JavaScript, not sent on cross-site requests, and require
+HTTPS.
+
+## Why no banner?
+
+Strictly-necessary cookies don't need consent under GDPR / ePrivacy
+because the service can't function without them. If a future feature
+introduces optional cookies, we'll add a banner with proper consent
+controls before that feature ships.
+
+## Your control
+
+You can clear cookies for `app.feedbot.dev` at any time from your
+browser's settings. That signs you out and you'll need to request a new
+magic link.

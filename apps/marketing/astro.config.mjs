@@ -80,6 +80,15 @@ export default defineConfig({
                     label: 'Pricing',
                     link: '/pricing/',
                 },
+                {
+                    label: 'Legal',
+                    items: [
+                        { label: 'Terms of Service', slug: 'legal/terms' },
+                        { label: 'Privacy Policy', slug: 'legal/privacy' },
+                        { label: 'Cookies', slug: 'legal/cookies' },
+                        { label: 'Data Processing Addendum', slug: 'legal/dpa' },
+                    ],
+                },
             ],
             customCss: [
                 '@fontsource/geist-sans/400.css',
