@@ -199,7 +199,9 @@ A monorepo. One install, four publishable packages plus the SPA.
 ```
 feedbot/
 ├── apps/
-│   └── web/             # React SPA: dashboard, auth, setup wizard, MCP onboarding
+│   ├── web/             # React SPA: dashboard, auth, setup wizard, MCP onboarding
+│   ├── marketing/       # Astro + Starlight: landing + docs at feedbot.dev
+│   └── installer-host/  # Static host for install.sh at get.feedbot.dev
 ├── packages/
 │   ├── feedbot-core/    # SQLAlchemy 2 models, repos, IDs, Argon2 hashing, LLM registry
 │   ├── feedbot-api/     # FastAPI JSON server (/v1/*) + native MCP (/mcp/*) — no HTML
@@ -208,7 +210,6 @@ feedbot/
 ├── alembic/             # Single shared schema migrations
 ├── docker-compose.yml   # db + api + web + (opt-in) bot
 ├── scripts/seed.py      # CLI: bootstrap owner / project / API key
-├── site/                # Astro Starlight docs site (separate deploy)
 └── docs/
     ├── ARCHITECTURE.md
     ├── DEPLOY-COOLIFY.md

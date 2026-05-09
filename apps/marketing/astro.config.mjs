@@ -1,10 +1,14 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import sitemap from '@astrojs/sitemap';
+import starlightThemeBlack from 'starlight-theme-black';
+
+const SITE = 'https://feedbot.dev';
 
 // https://astro.build/config
 export default defineConfig({
-    site: 'https://feedbot.dev',
+    site: SITE,
     integrations: [
         starlight({
             title: 'Feedbot',
@@ -20,6 +24,23 @@ export default defineConfig({
                     label: 'GitHub',
                     href: 'https://github.com/helderpgoncalves/feedbot',
                 },
+            ],
+            editLink: {
+                baseUrl:
+                    'https://github.com/helderpgoncalves/feedbot/edit/main/apps/marketing/',
+            },
+            lastUpdated: true,
+            pagination: true,
+            plugins: [
+                starlightThemeBlack({
+                    navLinks: [
+                        { label: 'Docs', link: '/introduction/' },
+                        { label: 'Pricing', link: '/pricing/' },
+                        { label: 'App', link: 'https://app.feedbot.dev' },
+                    ],
+                    footerText:
+                        'Built with Feedbot. Source on [GitHub](https://github.com/helderpgoncalves/feedbot).',
+                }),
             ],
             // Starlight serves docs at /docs/* and the landing page lives
             // at the root via src/pages/index.astro (Starlight defers to
@@ -55,17 +76,31 @@ export default defineConfig({
                     label: 'Telegram bot',
                     autogenerate: { directory: 'telegram' },
                 },
+                {
+                    label: 'Pricing',
+                    link: '/pricing/',
+                },
             ],
-            customCss: ['./src/styles/landing.css'],
-            components: {
-                // Use our own homepage; Starlight only takes over /docs/*.
-            },
+            customCss: [
+                '@fontsource/geist-sans/400.css',
+                '@fontsource/geist-sans/500.css',
+                '@fontsource/geist-sans/600.css',
+                '@fontsource/geist-mono/400.css',
+                './src/styles/landing.css',
+            ],
             head: [
                 {
                     tag: 'meta',
                     attrs: {
                         property: 'og:image',
-                        content: 'https://feedbot.dev/og.png',
+                        content: `${SITE}/og.png`,
+                    },
+                },
+                {
+                    tag: 'meta',
+                    attrs: {
+                        property: 'twitter:image',
+                        content: `${SITE}/og.png`,
                     },
                 },
                 {
@@ -74,5 +109,6 @@ export default defineConfig({
                 },
             ],
         }),
+        sitemap(),
     ],
 });

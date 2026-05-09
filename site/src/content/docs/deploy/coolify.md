@@ -1,1 +1,0 @@
-../../../../../docs/DEPLOY-COOLIFY.md
