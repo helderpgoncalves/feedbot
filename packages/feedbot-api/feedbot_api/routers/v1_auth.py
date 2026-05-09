@@ -20,13 +20,16 @@ from fastapi.responses import JSONResponse
 from feedbot_core import audit, auth_sessions
 from feedbot_core.models import Tenant, User
 from feedbot_core.repos import (
+    TenantAlreadyExists,
     bootstrap_owner,
     consume_magic_link,
     count_users,
+    create_tenant_with_owner,
     get_user_by_email,
     issue_magic_link,
     list_projects_for_user,
 )
+from feedbot_core.settings import is_signup_enabled
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from feedbot_api.cookies import (
@@ -56,6 +59,8 @@ from feedbot_api.schemas import (
     SetupIn,
     SetupOut,
     SetupStatusOut,
+    SignupIn,
+    SignupOut,
 )
 
 log = logging.getLogger("feedbot.v1.auth")
@@ -123,6 +128,130 @@ async def login(
             )
 
     response = JSONResponse(LoginOut(sent=True).model_dump())
+    set_nonce_cookie(response, nonce_raw)
+    return response
+
+
+# ─── Signup: multi-tenant cloud self-serve ─────────────────────────────────
+
+
+@router.post(
+    "/signup",
+    response_model=SignupOut,
+    summary="Create a new tenant + owner and email a magic-link",
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Signup is disabled on this deployment."
+        },
+        status.HTTP_503_SERVICE_UNAVAILABLE: {
+            "description": "Email delivery is not configured on this deployment."
+        },
+    },
+)
+@limiter.limit("3/hour")
+async def signup(
+    request: Request,
+    body: SignupIn,
+    session: AsyncSession = Depends(get_session),
+) -> JSONResponse:
+    """Create a brand-new tenant + owner and send a magic-link to ``body.email``.
+
+    Behaviour matrix:
+
+    - ``FEEDBOT_ALLOW_SIGNUP`` unset/false → 404 (route appears not to
+      exist). Self-host stays invite-only by default.
+    - SMTP not configured (console backend in production) → 503, same as
+      the regular login flow. Without email delivery, the magic-link
+      can't reach the user.
+    - Email already owns/belongs to a tenant → response is identical to
+      the new-tenant path (``{sent: true}``) so an attacker can't probe
+      which addresses are registered.
+
+    On success, the response body is identical to the regular login —
+    the SPA shows the same "check your email" card.
+    """
+    if not is_signup_enabled():
+        # Hide the route entirely when disabled. Returning 403 would leak
+        # that this endpoint exists; 404 mirrors what an unrouted path does.
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "not found")
+
+    if is_console_backend_unsafe_for_prod():
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "email delivery not configured",
+        )
+
+    email = body.email.lower().strip()
+    tenant_name = body.tenant_name.strip()
+    nonce_raw = secrets.token_urlsafe(NONCE_BYTES)
+    nonce_hash = hash_nonce(nonce_raw)
+
+    # The signup audit fires before the create attempt so we capture
+    # repeat attempts even when they're swallowed by the dedupe path.
+    await audit.log_event(
+        session,
+        event="signup.attempt",
+        ip=client_ip(request),
+        user_agent=client_user_agent(request),
+        details={"email": email, "channel": "spa"},
+    )
+
+    try:
+        user = await create_tenant_with_owner(
+            session, email=email, tenant_name=tenant_name
+        )
+    except TenantAlreadyExists:
+        # Generic success — emit a magic-link to the *existing* user so
+        # the legitimate owner can sign in even if they hit /signup by
+        # mistake. This is identical UX to a duplicate /login submit.
+        existing_user = await get_user_by_email(session, email)
+        if existing_user is not None:
+            token_raw = secrets.token_urlsafe(24)
+            await issue_magic_link(
+                session, existing_user.email, token_raw, nonce_hash=nonce_hash
+            )
+            base = str(request.base_url).rstrip("/")
+            link = f"{base}/magic?email={existing_user.email}&token={token_raw}"
+            with contextlib.suppress(Exception):
+                email_backend_from_env().send(
+                    to=existing_user.email,
+                    subject="Your Feedbot sign-in link",
+                    body=(
+                        f"Sign in to Feedbot:\n\n{link}\n\n"
+                        "This link expires in 15 minutes and can be used once.\n"
+                    ),
+                )
+        response = JSONResponse(SignupOut(sent=True).model_dump())
+        set_nonce_cookie(response, nonce_raw)
+        return response
+
+    # Fresh tenant — audit and email a welcome magic link.
+    await audit.log_event(
+        session,
+        event="tenant.created",
+        tenant_id=user.tenant_id,
+        user_id=user.id,
+        ip=client_ip(request),
+        user_agent=client_user_agent(request),
+        details={"email": user.email, "channel": "spa"},
+    )
+
+    token_raw = secrets.token_urlsafe(24)
+    await issue_magic_link(session, user.email, token_raw, nonce_hash=nonce_hash)
+    base = str(request.base_url).rstrip("/")
+    link = f"{base}/magic?email={user.email}&token={token_raw}"
+    with contextlib.suppress(Exception):
+        email_backend_from_env().send(
+            to=user.email,
+            subject="Welcome to Feedbot — sign in",
+            body=(
+                f"Your Feedbot workspace is ready.\n\n"
+                f"Sign in:\n\n{link}\n\n"
+                "This link expires in 15 minutes and can be used once.\n"
+            ),
+        )
+
+    response = JSONResponse(SignupOut(sent=True).model_dump())
     set_nonce_cookie(response, nonce_raw)
     return response
 

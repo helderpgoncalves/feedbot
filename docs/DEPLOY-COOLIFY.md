@@ -228,10 +228,14 @@ hook this into a schedule, use Coolify → **Application → Scheduled Tasks**:
 
 ## 7. Verify end-to-end
 
+### 7.1 Static smoke
+
 ```bash
 # Cloud SaaS
 curl -sf https://app.feedbot.dev/healthz | jq
 curl -sf https://app.feedbot.dev/config.json | jq
+# Expected (free closed-beta): allowSignup=true, billingEnabled=false,
+# deployment="cloud".
 
 # Marketing
 curl -sf https://feedbot.dev/ | head
@@ -240,10 +244,35 @@ curl -sf https://feedbot.dev/ | head
 curl -sf https://get.feedbot.dev/ | head -10   # should be the install.sh shebang
 ```
 
+### 7.2 Cloud signup smoke (manual, ~5 min)
+
+The full happy path before announcing closed-beta:
+
+1. Open `https://app.feedbot.dev` in a private window  >>>  redirected to `/signup`
+   (because the DB is empty and `allowSignup=true`).
+2. Submit your email + workspace name  >>>  "check your email" card.
+3. Open the magic-link from the inbox  >>>  lands at `/projects` as the new
+   tenant's owner. Workspace name is the value you typed.
+4. Create your first project  >>>  no 402 (billing disabled in C1).
+5. Generate an API key, copy the MCP URL, wire it into Claude Code  >>>
+   one-tool ping should succeed.
+6. Add the Telegram bot to a group, redeem the link from the dashboard,
+   send a test message  >>>  feedback appears in the dashboard, reply
+   from the dashboard surfaces in the chat.
+7. Sign out  >>>  next visit lands on `/login`, sign-up link visible
+   (because `cfg.allowSignup === true`).
+
+### 7.3 Hide from search engines while in closed-beta
+
+Until you're ready for a public launch, ship a `noindex` meta tag on the
+SPA. The simplest place: edit `apps/web/index.html` and add
+`<meta name="robots" content="noindex">` inside `<head>`. Remove this
+line as part of the C5 launch checklist.
+
 You can now:
 
 - Open `https://feedbot.dev` and read the docs.
-- Open `https://app.feedbot.dev` to use the cloud SaaS.
+- Open `https://app.feedbot.dev` to use the cloud SaaS (closed-beta).
 - Tell anyone wanting to self-host: `curl -fsSL https://get.feedbot.dev | sh`.
 
 ---

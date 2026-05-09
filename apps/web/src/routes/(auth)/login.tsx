@@ -7,7 +7,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
-import { createFileRoute } from '@tanstack/react-router';
+import { Link, createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { api, unwrap } from '@/lib/api';
+import { getConfig } from '@/lib/config';
 
 const schema = z.object({
 	email: z.string().min(3).max(255).email(),
@@ -39,6 +40,7 @@ export const Route = createFileRoute('/(auth)/login')({
 
 function LoginPage() {
 	const { t } = useTranslation();
+	const cfg = getConfig();
 	const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
 
 	const form = useForm<FormValues>({
@@ -126,6 +128,14 @@ function LoginPage() {
 						</Button>
 					</form>
 				</Form>
+				{cfg.allowSignup && (
+					<p className="mt-6 text-center text-sm text-muted-foreground">
+						{t('auth.login.no_account')}{' '}
+						<Link to="/signup" className="underline-offset-4 hover:underline">
+							{t('auth.login.signup_cta')}
+						</Link>
+					</p>
+				)}
 			</CardContent>
 		</Card>
 	);

@@ -12,14 +12,25 @@
 
 import { Outlet, createFileRoute, redirect } from '@tanstack/react-router';
 import { setupStatusQueryOptions } from '@/lib/auth';
+import { getConfig } from '@/lib/config';
 
 export const Route = createFileRoute('/(auth)')({
 	beforeLoad: async ({ context, location }) => {
-		if (location.pathname === '/setup') return;
-		const status = await context.queryClient.ensureQueryData(setupStatusQueryOptions());
-		if (status.required) {
-			throw redirect({ to: '/setup' });
+		if (location.pathname === '/setup' || location.pathname === '/signup') {
+			return;
 		}
+		const status = await context.queryClient.ensureQueryData(setupStatusQueryOptions());
+		if (!status.required) return;
+
+		// Cloud (multi-tenant): "DB has zero users" doesn't mean "bootstrap
+		// the first owner" — it means "nobody has signed up yet". Send the
+		// visitor to /signup so they can create their own workspace, not to
+		// /setup which is the single-tenant first-run wizard.
+		const cfg = getConfig();
+		if (cfg.deployment === 'cloud' && cfg.allowSignup) {
+			throw redirect({ to: '/signup' });
+		}
+		throw redirect({ to: '/setup' });
 	},
 	component: AuthLayout,
 });

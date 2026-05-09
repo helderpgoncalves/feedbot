@@ -58,6 +58,46 @@ async def bootstrap_owner(session: AsyncSession, email: str, tenant_name: str) -
     return user
 
 
+class TenantAlreadyExists(Exception):
+    """Raised by ``create_tenant_with_owner`` when ``email`` already belongs
+    to another tenant.
+
+    Routers convert this into a generic 200 ``{sent: true}`` to prevent
+    enumeration; the caller may also log an audit event so legitimate
+    repeat-signup attempts are visible to operators.
+    """
+
+
+async def create_tenant_with_owner(
+    session: AsyncSession, *, email: str, tenant_name: str
+) -> User:
+    """Create a new tenant + owner user atomically.
+
+    Used by the cloud signup path (``POST /v1/signup``) — distinct from
+    ``bootstrap_owner``, which is the *first*-tenant first-run path on
+    self-host. This one is multi-tenant: it never checks ``count_users``,
+    so any number of tenants can coexist in the same database.
+
+    Raises ``TenantAlreadyExists`` when ``email`` already owns or belongs
+    to a tenant, so the same address can't accidentally fork their own
+    workspace. The router layer translates this into a generic success
+    response to avoid leaking which addresses are registered.
+    """
+    email_norm = email.lower().strip()
+    existing = await get_user_by_email(session, email_norm)
+    if existing is not None:
+        raise TenantAlreadyExists(email_norm)
+
+    tenant = Tenant(name=tenant_name.strip() or email_norm.split("@")[0])
+    session.add(tenant)
+    await session.flush()
+
+    user = User(email=email_norm, tenant_id=tenant.id, role=Role.OWNER)
+    session.add(user)
+    await session.flush()
+    return user
+
+
 async def update_user_role(session: AsyncSession, user: User, new_role: Role) -> User:
     """Change a user's role. Caller is responsible for authorization checks."""
     user.role = new_role

@@ -15,6 +15,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as authedTeamRouteImport } from './routes/(authed)/team'
 import { Route as authedSettingsRouteImport } from './routes/(authed)/settings'
 import { Route as authedSecurityRouteImport } from './routes/(authed)/security'
+import { Route as authSignupRouteImport } from './routes/(auth)/signup'
 import { Route as authSetupRouteImport } from './routes/(auth)/setup'
 import { Route as authMagicRouteImport } from './routes/(auth)/magic'
 import { Route as authLoginRouteImport } from './routes/(auth)/login'
@@ -54,6 +55,11 @@ const authedSecurityRoute = authedSecurityRouteImport.update({
   id: '/security',
   path: '/security',
   getParentRoute: () => authedRouteRoute,
+} as any)
+const authSignupRoute = authSignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => authRouteRoute,
 } as any)
 const authSetupRoute = authSetupRouteImport.update({
   id: '/setup',
@@ -116,6 +122,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof authLoginRoute
   '/magic': typeof authMagicRoute
   '/setup': typeof authSetupRoute
+  '/signup': typeof authSignupRoute
   '/security': typeof authedSecurityRoute
   '/settings': typeof authedSettingsRouteWithChildren
   '/team': typeof authedTeamRoute
@@ -133,6 +140,7 @@ export interface FileRoutesByTo {
   '/login': typeof authLoginRoute
   '/magic': typeof authMagicRoute
   '/setup': typeof authSetupRoute
+  '/signup': typeof authSignupRoute
   '/security': typeof authedSecurityRoute
   '/settings': typeof authedSettingsRouteWithChildren
   '/team': typeof authedTeamRoute
@@ -153,6 +161,7 @@ export interface FileRoutesById {
   '/(auth)/login': typeof authLoginRoute
   '/(auth)/magic': typeof authMagicRoute
   '/(auth)/setup': typeof authSetupRoute
+  '/(auth)/signup': typeof authSignupRoute
   '/(authed)/security': typeof authedSecurityRoute
   '/(authed)/settings': typeof authedSettingsRouteWithChildren
   '/(authed)/team': typeof authedTeamRoute
@@ -172,6 +181,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/magic'
     | '/setup'
+    | '/signup'
     | '/security'
     | '/settings'
     | '/team'
@@ -189,6 +199,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/magic'
     | '/setup'
+    | '/signup'
     | '/security'
     | '/settings'
     | '/team'
@@ -208,6 +219,7 @@ export interface FileRouteTypes {
     | '/(auth)/login'
     | '/(auth)/magic'
     | '/(auth)/setup'
+    | '/(auth)/signup'
     | '/(authed)/security'
     | '/(authed)/settings'
     | '/(authed)/team'
@@ -270,6 +282,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/security'
       preLoaderRoute: typeof authedSecurityRouteImport
       parentRoute: typeof authedRouteRoute
+    }
+    '/(auth)/signup': {
+      id: '/(auth)/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof authSignupRouteImport
+      parentRoute: typeof authRouteRoute
     }
     '/(auth)/setup': {
       id: '/(auth)/setup'
@@ -355,6 +374,7 @@ interface authRouteRouteChildren {
   authLoginRoute: typeof authLoginRoute
   authMagicRoute: typeof authMagicRoute
   authSetupRoute: typeof authSetupRoute
+  authSignupRoute: typeof authSignupRoute
   authInvitesTokenRoute: typeof authInvitesTokenRoute
 }
 
@@ -362,6 +382,7 @@ const authRouteRouteChildren: authRouteRouteChildren = {
   authLoginRoute: authLoginRoute,
   authMagicRoute: authMagicRoute,
   authSetupRoute: authSetupRoute,
+  authSignupRoute: authSignupRoute,
   authInvitesTokenRoute: authInvitesTokenRoute,
 }
 

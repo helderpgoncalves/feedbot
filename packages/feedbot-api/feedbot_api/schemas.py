@@ -119,6 +119,33 @@ class SetupOut(BaseModel):
     )
 
 
+class SignupIn(BaseModel):
+    """Body for ``POST /v1/signup`` — multi-tenant cloud self-serve.
+
+    Distinct from ``SetupIn`` (single-tenant first-run bootstrap). Both
+    accept ``tenant_name`` optionally; ``signup`` falls back to the email's
+    local-part when omitted, ``setup`` falls back the same way.
+    """
+
+    email: str = Field(min_length=3, max_length=255)
+    tenant_name: str = Field(default="", max_length=120)
+
+
+class SignupOut(BaseModel):
+    """Response from ``POST /v1/signup``.
+
+    Mirrors ``LoginOut.sent`` deliberately — the SPA shows the same
+    "check your email" success card after either flow, and the response
+    is identical whether the email is new, already registered, or
+    rejected by rate limiting. Hides whether an email is registered to
+    prevent enumeration.
+    """
+
+    sent: bool = Field(
+        description="Always true on success; whether the email was new is intentionally hidden."
+    )
+
+
 class SessionOut(BaseModel):
     """One row from ``GET /v1/auth/sessions``.
 
