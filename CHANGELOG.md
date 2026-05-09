@@ -7,6 +7,57 @@ All notable changes to this project will be documented here. Format follows [Kee
 
 ## [Unreleased]
 
+### Added — Cloud v1.0 (C0–C5)
+
+- **Cloud billing foundations (C0)** — `feedbot_core.billing/` with
+  `assert_quota`, `current_plan`, `is_billing_enabled`. New
+  `subscriptions` table (migration `0008`). Quota checks wired into
+  `POST /v1/projects`, `POST /v1/internal/ingest`, `POST /v1/invites`
+  with structured 402 responses. Self-host stays a no-op
+  (`FEEDBOT_BILLING_ENABLED=false` short-circuits before any DB read).
+- **Cloud signup (C1)** — `POST /v1/signup` with rate-limit `3/hour/IP`,
+  anti-enumeration generic 200, and `is_signup_enabled()` gating. New
+  SPA page `/signup`, login → signup link, route guards redirect
+  empty-DB cloud deployments to `/signup` instead of `/setup`.
+- **Stripe integration (C2)** — `feedbot_core.billing.stripe_client`
+  using async `StripeClient` + `HTTPXClient`; webhook at
+  `POST /v1/internal/stripe-webhook` with signature verification and
+  event-id dedupe (`stripe_processed_events`, migration `0009`).
+  Handlers for `customer.subscription.{created,updated,deleted}`,
+  `invoice.payment_{succeeded,failed}`. Authed endpoints:
+  `GET /v1/billing/subscription`, `POST /v1/billing/portal`,
+  `POST /v1/billing/checkout`. Signup creates the Stripe customer +
+  free-plan subscription on commercial cloud.
+- **Billing UI (C3)** — owner-only `/billing` route with plan, status,
+  usage bars, past-due alert, "Manage subscription" portal redirect,
+  inline upgrade CTAs. `<UsageBanner />` on `/projects` shows yellow
+  at ≥80% / red at ≥100% of any limit; renders `null` when billing
+  is off. Sidebar "Billing" entry visible only to owners on cloud-
+  with-billing.
+- **GDPR export + delete (C4)** — `GET /v1/tenant/export` streams a
+  zip with metadata + per-table json/csv (rate-limited 1/day);
+  `POST /v1/tenant/delete` cascade-deletes after email reconfirm and
+  best-effort cancels the Stripe subscription. New `/account` route
+  with both surfaces. Legal pages live on the marketing site under
+  `/legal/{terms,privacy,cookies,dpa}`.
+- **Marketing consolidation** — removed `site/`, kept `apps/marketing/`
+  as the single Astro+Starlight setup. Ported `pricing.mdx`,
+  `@astrojs/sitemap`, `starlight-theme-black`, and Geist fonts. Custom
+  landing at `/`, docs at `/docs/*`, sitemap at `/sitemap-index.xml`.
+- **OG image** — generated 1200×630 PNG via `sharp` from a hand-rolled
+  SVG (`apps/marketing/scripts/generate-og.mjs`); served from both the
+  marketing site and the SPA.
+- **Operational docs** — `docs/DEPLOY-COOLIFY.md` §8 covers Sentry,
+  structured logs, status page, restore drill, and on-call. The next-
+  steps block lists the Stripe env vars commercial cloud needs.
+
+### Changed — Cloud v1.0
+
+- **`apps/web/src/lib/config.ts`** — `RuntimeConfig` gained
+  `billingEnabled`. Self-host default is `false`.
+- **Caddy entrypoint** of `apps/web` already templated `billingEnabled`
+  / `allowSignup` — these now thread all the way to the SPA UI.
+
 ### Removed
 - **Jinja UI in `feedbot-api` (BREAKING)** — the legacy server-rendered dashboard, team page, members page, invites accept page, login form, LLM settings page, and bootstrap setup wizard have been deleted. The SPA in `apps/web/` has full functional parity and is now the only UI. The API process is a pure JSON server. Concretely removed: `routers/auth.py`, `routers/dashboard.py`, `routers/team.py`, `routers/members.py`, `routers/invites.py`, `routers/llm_settings.py`, `routers/setup.py`, the entire `templates/` and `static/` directories, `templating.py`, the `SessionMiddleware`, and the dependencies `jinja2`, `python-multipart`, `itsdangerous`.
 - **GET /, GET /login, GET /login/verify, GET /setup, GET /dashboard, /team, /members, /invites/{token}** (HTML responses) and the unversioned **POST /login**, **POST /logout**, **POST /setup** form handlers. Use the SPA at `app.<host>` (or whatever `FEEDBOT_PUBLIC_URL` points to) which talks to `/v1/auth/*` and `/v1/setup`.
