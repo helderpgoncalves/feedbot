@@ -1,0 +1,71 @@
+# Fusão automática CONSERVADORA de PRs do Dependabot. Só funde quando TODOS os workflows do commit passaram e a
+# atualização é de segurança (patch/minor) ou um simples patch; saltos major e grupos com minor nunca se fundem sozinhos.
+# Corre depois do CI (workflow_run), sem esperar nem gastar minutos: o último workflow a terminar é quem funde.
+name: Dependabot auto-merge
+on:
+  workflow_run:
+    workflows: ["ci"]
+    types: [completed]
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+jobs:
+  automerge:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.actor.login == 'dependabot[bot]' &&
+      github.event.workflow_run.pull_requests[0].number != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fundir se for seguro
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PRN: ${{ github.event.workflow_run.pull_requests[0].number }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          python3 - <<'PY'
+          import json, os, re, subprocess, sys
+          repo, num, sha = os.environ["REPO"], os.environ["PRN"], os.environ["SHA"]
+          def gh(*a):
+              r = subprocess.run(["gh", *a], capture_output=True, text=True)
+              if r.returncode: print("gh falhou:", " ".join(a), r.stderr.strip()[:200]); sys.exit(0)
+              return json.loads(r.stdout) if r.stdout.strip().startswith(("{", "[")) else r.stdout
+          def stop(msg): print("SEM FUNDIR:", msg); sys.exit(0)
+          pr = gh("api", f"repos/{repo}/pulls/{num}")
+          if pr["state"] != "open" or pr["draft"]: stop("PR fechado ou rascunho")
+          if pr["user"]["login"] != "dependabot[bot]": stop("não é do Dependabot")
+          if pr["head"]["sha"] != sha: stop("o PR mudou depois deste CI")
+          default = gh("api", f"repos/{repo}")["default_branch"]
+          if pr["base"]["ref"] != default: stop("não vai para o ramo principal")
+          labels = {l["name"] for l in pr["labels"]}
+          # O corpo do commit do Dependabot traz um bloco YAML com o tipo de cada atualização.
+          types = []
+          for c in gh("api", "--paginate", f"repos/{repo}/pulls/{num}/commits"):
+              types += re.findall(r"update-type:\s*(\S+)", c["commit"]["message"])
+          if not types:
+              # PRs de uma só dependência: classifica pelo título («bump X from A to B»), comparando versões.
+              m = re.search(r"bump \S+ from (\S+) to (\S+)", pr["title"])
+              if not m or "group" in pr["title"]: stop("sem metadados de atualização")
+              a, b = ([int(x) for x in re.findall(r"\d+", v)[:3]] + [0, 0, 0] for v in m.groups())
+              types = ["version-update:semver-" + ("major" if a[0] != b[0] else "minor" if a[1] != b[1] else "patch")]
+          security = "security" in labels
+          allowed = {"version-update:semver-patch"} | ({"version-update:semver-minor"} if security else set())
+          if not set(types) <= allowed: stop(f"tipos não elegíveis: {sorted(set(types) - allowed)}")
+          # Todos os workflows deste commit (menos o próprio) têm de ter terminado e passado.
+          runs = gh("api", f"repos/{repo}/actions/runs?head_sha={sha}&per_page=100")["workflow_runs"]
+          runs = [r for r in runs if r["name"] != "Dependabot auto-merge"]
+          if not runs: stop("sem execuções de CI para este commit")
+          pend = [r["name"] for r in runs if r["status"] != "completed"]
+          if pend: stop(f"ainda a correr: {pend}")
+          bad = [r["name"] for r in runs if r["conclusion"] not in ("success", "skipped", "neutral")]
+          if bad: stop(f"CI falhou: {bad}")
+          if not any(r["conclusion"] == "success" for r in runs): stop("nenhum workflow passou")
+          print(f"FUNDIR #{num}: {sorted(set(types))} security={security} CI={[r['name'] for r in runs]}")
+          if os.environ.get("DRY_RUN") == "1": sys.exit(0)
+          r = subprocess.run(["gh", "pr", "merge", num, "--repo", repo, "--squash", "--delete-branch"], capture_output=True, text=True)
+          print(r.stdout.strip() or r.stderr.strip())
+          PY
