@@ -13,7 +13,7 @@ importers:
         version: 3.7.2
       '@astrojs/starlight':
         specifier: ^0.36.0
-        version: 0.36.3(astro@5.18.1(@types/node@24.12.3)(rollup@4.60.3)(typescript@5.9.3))
+        version: 0.36.3(astro@5.18.2(@types/node@24.12.3)(rollup@4.60.3)(typescript@5.9.3))
       '@fontsource/geist-mono':
         specifier: ^5.2.7
         version: 5.2.7
@@ -21,14 +21,14 @@ importers:
         specifier: ^5.2.5
         version: 5.2.5
       astro:
-        specifier: ^5.16.0
-        version: 5.18.1(@types/node@24.12.3)(rollup@4.60.3)(typescript@5.9.3)
+        specifier: ^5.18.2
+        version: 5.18.2(@types/node@24.12.3)(rollup@4.60.3)(typescript@5.9.3)
       sharp:
         specifier: ^0.34.0
         version: 0.34.5
       starlight-theme-black:
         specifier: ^0.6.0
-        version: 0.6.0(@astrojs/starlight@0.36.3(astro@5.18.1(@types/node@24.12.3)(rollup@4.60.3)(typescript@5.9.3)))
+        version: 0.6.0(@astrojs/starlight@0.36.3(astro@5.18.2(@types/node@24.12.3)(rollup@4.60.3)(typescript@5.9.3)))
 
 packages:
 
@@ -652,66 +652,79 @@ packages:
     resolution: {integrity: sha512-DV6fJoxEYWJOvaZIsok7KrYl0tPvga5OZ2yvKHNNYyk/2roMLqQAbGhr78EQ5YhHpnhLKJD3S1WFusAkmUuV5g==}
     cpu: [arm]
     os: [linux]
+    libc: [glibc]
 
   '@rollup/rollup-linux-arm-musleabihf@4.60.3':
     resolution: {integrity: sha512-mQKoJAzvuOs6F+TZybQO4GOTSMUu7v0WdxEk24krQ/uUxXoPTtHjuaUuPmFhtBcM4K0ons8nrE3JyhTuCFtT/w==}
     cpu: [arm]
     os: [linux]
+    libc: [musl]
 
   '@rollup/rollup-linux-arm64-gnu@4.60.3':
     resolution: {integrity: sha512-Whjj2qoiJ6+OOJMGptTYazaJvjOJm+iKHpXQM1P3LzGjt7Ff++Tp7nH4N8J/BUA7R9IHfDyx4DJIflifwnbmIA==}
     cpu: [arm64]
     os: [linux]
+    libc: [glibc]
 
   '@rollup/rollup-linux-arm64-musl@4.60.3':
     resolution: {integrity: sha512-4YTNHKqGng5+yiZt3mg77nmyuCfmNfX4fPmyUapBcIk+BdwSwmCWGXOUxhXbBEkFHtoN5boLj/5NON+u5QC9tg==}
     cpu: [arm64]
     os: [linux]
+    libc: [musl]
 
   '@rollup/rollup-linux-loong64-gnu@4.60.3':
     resolution: {integrity: sha512-SU3kNlhkpI4UqlUc2VXPGK9o886ZsSeGfMAX2ba2b8DKmMXq4AL7KUrkSWVbb7koVqx41Yczx6dx5PNargIrEA==}
     cpu: [loong64]
     os: [linux]
+    libc: [glibc]
 
   '@rollup/rollup-linux-loong64-musl@4.60.3':
     resolution: {integrity: sha512-6lDLl5h4TXpB1mTf2rQWnAk/LcXrx9vBfu/DT5TIPhvMhRWaZ5MxkIc8u4lJAmBo6klTe1ywXIUHFjylW505sg==}
     cpu: [loong64]
     os: [linux]
+    libc: [musl]
 
   '@rollup/rollup-linux-ppc64-gnu@4.60.3':
     resolution: {integrity: sha512-BMo8bOw8evlup/8G+cj5xWtPyp93xPdyoSN16Zy90Q2QZ0ZYRhCt6ZJSwbrRzG9HApFabjwj2p25TUPDWrhzqQ==}
     cpu: [ppc64]
     os: [linux]
+    libc: [glibc]
 
   '@rollup/rollup-linux-ppc64-musl@4.60.3':
     resolution: {integrity: sha512-E0L8X1dZN1/Rph+5VPF6Xj2G7JJvMACVXtamTJIDrVI44Y3K+G8gQaMEAavbqCGTa16InptiVrX6eM6pmJ+7qA==}
     cpu: [ppc64]
     os: [linux]
+    libc: [musl]
 
   '@rollup/rollup-linux-riscv64-gnu@4.60.3':
     resolution: {integrity: sha512-oZJ/WHaVfHUiRAtmTAeo3DcevNsVvH8mbvodjZy7D5QKvCefO371SiKRpxoDcCxB3PTRTLayWBkvmDQKTcX/sw==}
     cpu: [riscv64]
     os: [linux]
+    libc: [glibc]
 
   '@rollup/rollup-linux-riscv64-musl@4.60.3':
     resolution: {integrity: sha512-Dhbyh7j9FybM3YaTgaHmVALwA8AkUwTPccyCQ79TG9AJUsMQqgN1DDEZNr4+QUfwiWvLDumW5vdwzoeUF+TNxQ==}
     cpu: [riscv64]
     os: [linux]
+    libc: [musl]
 
   '@rollup/rollup-linux-s390x-gnu@4.60.3':
     resolution: {integrity: sha512-cJd1X5XhHHlltkaypz1UcWLA8AcoIi1aWhsvaWDskD1oz2eKCypnqvTQ8ykMNI0RSmm7NkTdSqSSD7zM0xa6Ig==}
     cpu: [s390x]
     os: [linux]
+    libc: [glibc]
 
   '@rollup/rollup-linux-x64-gnu@4.60.3':
     resolution: {integrity: sha512-DAZDBHQfG2oQuhY7mc6I3/qB4LU2fQCjRvxbDwd/Jdvb9fypP4IJ4qmtu6lNjes6B531AI8cg1aKC2di97bUxA==}
     cpu: [x64]
     os: [linux]
+    libc: [glibc]
 
   '@rollup/rollup-linux-x64-musl@4.60.3':
     resolution: {integrity: sha512-cRxsE8c13mZOh3vP+wLDxpQBRrOHDIGOWyDL93Sy0Ga8y515fBcC2pjUfFwUe5T7tqvTvWbCpg1URM/AXdWIXA==}
     cpu: [x64]
     os: [linux]
+    libc: [musl]
 
   '@rollup/rollup-openbsd-x64@4.60.3':
     resolution: {integrity: sha512-QaWcIgRxqEdQdhJqW4DJctsH6HCmo5vHxY0krHSX4jMtOqfzC+dqDGuHM87bu4H8JBeibWx7jFz+h6/4C8wA5Q==}
@@ -860,8 +873,8 @@ packages:
     peerDependencies:
       astro: ^4.0.0-beta || ^5.0.0-beta || ^3.3.0 || ^6.0.0-beta
 
-  astro@5.18.1:
-    resolution: {integrity: sha512-m4VWilWZ+Xt6NPoYzC4CgGZim/zQUO7WFL0RHCH0AiEavF1153iC3+me2atDvXpf/yX4PyGUeD8wZLq1cirT3g==}
+  astro@5.18.2:
+    resolution: {integrity: sha512-TnFwLnAXty5MXKPDGuKXqK4AMBXG+FH6RUdK7Oyc3gyfNoFIthT+4eRbzOK43bdRlLaZuxgciDSjgtggZ3OtGQ==}
     engines: {node: 18.20.8 || ^20.3.0 || >=22.0.0, npm: '>=9.6.5', pnpm: '>=7.1.0'}
     hasBin: true
 
@@ -1767,6 +1780,7 @@ packages:
   tsconfck@3.1.6:
     resolution: {integrity: sha512-ks6Vjr/jEw0P1gmOVwutM3B7fWxoWBL2KRDb1JfqGVawBmO5UsvmWOQFGHBPl5yxYz4eERr19E6L7NMv+Fej4w==}
     engines: {node: ^18 || >=20}
+    deprecated: unmaintained
     hasBin: true
     peerDependencies:
       typescript: ^5.0.0
@@ -2042,12 +2056,12 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@astrojs/mdx@4.3.14(astro@5.18.1(@types/node@24.12.3)(rollup@4.60.3)(typescript@5.9.3))':
+  '@astrojs/mdx@4.3.14(astro@5.18.2(@types/node@24.12.3)(rollup@4.60.3)(typescript@5.9.3))':
     dependencies:
       '@astrojs/markdown-remark': 6.3.11
       '@mdx-js/mdx': 3.1.1
       acorn: 8.16.0
-      astro: 5.18.1(@types/node@24.12.3)(rollup@4.60.3)(typescript@5.9.3)
+      astro: 5.18.2(@types/node@24.12.3)(rollup@4.60.3)(typescript@5.9.3)
       es-module-lexer: 1.7.0
       estree-util-visit: 2.0.0
       hast-util-to-html: 9.0.5
@@ -2071,17 +2085,17 @@ snapshots:
       stream-replace-string: 2.0.0
       zod: 4.4.3
 
-  '@astrojs/starlight@0.36.3(astro@5.18.1(@types/node@24.12.3)(rollup@4.60.3)(typescript@5.9.3))':
+  '@astrojs/starlight@0.36.3(astro@5.18.2(@types/node@24.12.3)(rollup@4.60.3)(typescript@5.9.3))':
     dependencies:
       '@astrojs/markdown-remark': 6.3.11
-      '@astrojs/mdx': 4.3.14(astro@5.18.1(@types/node@24.12.3)(rollup@4.60.3)(typescript@5.9.3))
+      '@astrojs/mdx': 4.3.14(astro@5.18.2(@types/node@24.12.3)(rollup@4.60.3)(typescript@5.9.3))
       '@astrojs/sitemap': 3.7.2
       '@pagefind/default-ui': 1.5.2
       '@types/hast': 3.0.4
       '@types/js-yaml': 4.0.9
       '@types/mdast': 4.0.4
-      astro: 5.18.1(@types/node@24.12.3)(rollup@4.60.3)(typescript@5.9.3)
-      astro-expressive-code: 0.41.7(astro@5.18.1(@types/node@24.12.3)(rollup@4.60.3)(typescript@5.9.3))
+      astro: 5.18.2(@types/node@24.12.3)(rollup@4.60.3)(typescript@5.9.3)
+      astro-expressive-code: 0.41.7(astro@5.18.2(@types/node@24.12.3)(rollup@4.60.3)(typescript@5.9.3))
       bcp-47: 2.1.0
       hast-util-from-html: 2.0.3
       hast-util-select: 6.0.4
@@ -2671,12 +2685,12 @@ snapshots:
 
   astring@1.9.0: {}
 
-  astro-expressive-code@0.41.7(astro@5.18.1(@types/node@24.12.3)(rollup@4.60.3)(typescript@5.9.3)):
+  astro-expressive-code@0.41.7(astro@5.18.2(@types/node@24.12.3)(rollup@4.60.3)(typescript@5.9.3)):
     dependencies:
-      astro: 5.18.1(@types/node@24.12.3)(rollup@4.60.3)(typescript@5.9.3)
+      astro: 5.18.2(@types/node@24.12.3)(rollup@4.60.3)(typescript@5.9.3)
       rehype-expressive-code: 0.41.7
 
-  astro@5.18.1(@types/node@24.12.3)(rollup@4.60.3)(typescript@5.9.3):
+  astro@5.18.2(@types/node@24.12.3)(rollup@4.60.3)(typescript@5.9.3):
     dependencies:
       '@astrojs/compiler': 2.13.1
       '@astrojs/internal-helpers': 0.7.6
@@ -4187,9 +4201,9 @@ snapshots:
 
   space-separated-tokens@2.0.2: {}
 
-  starlight-theme-black@0.6.0(@astrojs/starlight@0.36.3(astro@5.18.1(@types/node@24.12.3)(rollup@4.60.3)(typescript@5.9.3))):
+  starlight-theme-black@0.6.0(@astrojs/starlight@0.36.3(astro@5.18.2(@types/node@24.12.3)(rollup@4.60.3)(typescript@5.9.3))):
     dependencies:
-      '@astrojs/starlight': 0.36.3(astro@5.18.1(@types/node@24.12.3)(rollup@4.60.3)(typescript@5.9.3))
+      '@astrojs/starlight': 0.36.3(astro@5.18.2(@types/node@24.12.3)(rollup@4.60.3)(typescript@5.9.3))
       '@fontsource/geist-mono': 5.2.7
       '@fontsource/geist-sans': 5.2.5
       '@pagefind/default-ui': 1.5.2
