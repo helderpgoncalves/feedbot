@@ -308,7 +308,7 @@ services:
 
   db:
     <<: *defaults
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     labels:
       com.feedbot.installer: "true"
       com.feedbot.role: "db"
