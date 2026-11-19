@@ -4,7 +4,8 @@ version = "0.1.0"
 description = "MCP server that connects Claude Code to a Feedbot deployment over HTTP."
 requires-python = ">=3.11"
 dependencies = [
-    "mcp>=1.0",
+    # mcp 2.x removed mcp.server.fastmcp (renamed to MCPServer); pin to v1 until migrated.
+    "mcp>=1.27,<2",
     "httpx>=0.27",
     "pydantic>=2.7",
     "pydantic-settings>=2.3",

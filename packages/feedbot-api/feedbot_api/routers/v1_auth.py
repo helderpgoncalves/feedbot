@@ -18,9 +18,9 @@ import secrets
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
 from feedbot_core import audit, auth_sessions
-from feedbot_core.models import Tenant, User
 from feedbot_core.billing import is_billing_enabled
 from feedbot_core.billing.settings import stripe_trial_days
+from feedbot_core.models import Tenant, User
 from feedbot_core.repos import (
     TenantAlreadyExists,
     bootstrap_owner,

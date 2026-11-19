@@ -76,6 +76,19 @@ PROJECT_ROOT = os.path.abspath(
 # ─── Session-scoped DB setup ───────────────────────────────────────────────
 
 
+def _sync_dsn(dsn: str) -> str:
+    """Pin sync DSNs to psycopg2 (the driver the ``test`` extra installs).
+
+    SQLAlchemy 2.1 maps a bare ``postgresql://`` to psycopg (v3) instead of
+    psycopg2, so leaving the driver implicit breaks with
+    ``ModuleNotFoundError: psycopg``.
+    """
+    scheme, sep, rest = dsn.partition("://")
+    if scheme in ("postgresql", "postgresql+asyncpg", "postgres"):
+        scheme = "postgresql+psycopg2"
+    return f"{scheme}{sep}{rest}"
+
+
 def _ensure_test_db_exists() -> None:
     """Create the test database if it doesn't yet exist."""
     parsed = urlsplit(TEST_DSN.replace("+asyncpg", ""))
@@ -83,7 +96,7 @@ def _ensure_test_db_exists() -> None:
     if not target_db:
         raise RuntimeError(f"FEEDBOT_TEST_DATABASE_URL has no database name: {TEST_DSN}")
 
-    admin = create_sync_engine(ADMIN_DSN, isolation_level="AUTOCOMMIT")
+    admin = create_sync_engine(_sync_dsn(ADMIN_DSN), isolation_level="AUTOCOMMIT")
     with admin.connect() as conn:
         exists = conn.execute(
             text("SELECT 1 FROM pg_database WHERE datname = :n"), {"n": target_db}
@@ -95,7 +108,7 @@ def _ensure_test_db_exists() -> None:
 
 def _wipe_schema() -> None:
     """Drop + recreate ``public`` so each session starts from a known empty state."""
-    sync_dsn = TEST_DSN.replace("+asyncpg", "")
+    sync_dsn = _sync_dsn(TEST_DSN)
     engine = create_sync_engine(sync_dsn)
     with engine.begin() as conn:
         conn.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
