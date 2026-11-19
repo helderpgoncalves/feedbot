@@ -8,6 +8,11 @@ updates:
     directory: "/packages/feedbot-api"
     schedule: { interval: "weekly" }
     open-pull-requests-limit: 5
+    ignore:
+      # mcp 2.x removed mcp.server.fastmcp (renamed to MCPServer). Migrate the code first,
+      # then lift the <2 pin by hand.
+      - dependency-name: "mcp"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "pip"
     directory: "/packages/feedbot-bot"
     schedule: { interval: "weekly" }
@@ -16,6 +21,11 @@ updates:
     directory: "/packages/feedbot-mcp"
     schedule: { interval: "weekly" }
     open-pull-requests-limit: 5
+    ignore:
+      # mcp 2.x removed mcp.server.fastmcp (renamed to MCPServer). Migrate the code first,
+      # then lift the <2 pin by hand.
+      - dependency-name: "mcp"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule: { interval: "weekly" }
