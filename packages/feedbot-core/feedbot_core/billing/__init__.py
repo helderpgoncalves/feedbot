@@ -26,8 +26,8 @@ from feedbot_core.billing.settings import is_billing_enabled
 __all__ = [
     "PLANS",
     "Plan",
-    "QuotaKind",
     "QuotaExceeded",
+    "QuotaKind",
     "assert_quota",
     "current_plan",
     "is_billing_enabled",

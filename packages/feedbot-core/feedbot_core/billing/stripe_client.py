@@ -21,6 +21,7 @@ upgrades land via dep bumps and never via stale pinned strings.
 
 from __future__ import annotations
 
+import json
 import logging
 from functools import lru_cache
 from typing import Any
@@ -228,8 +229,8 @@ async def create_checkout_session(
 # ─── Webhook signature verification ────────────────────────────────────────
 
 
-def verify_webhook(payload: bytes | str, sig_header: str) -> Any:
-    """Validate a Stripe webhook signature and return the parsed event.
+def verify_webhook(payload: bytes | str, sig_header: str) -> dict[str, Any]:
+    """Validate a Stripe webhook signature and return the event as a plain dict.
 
     Synchronous because ``Webhook.construct_event`` is pure CPU (HMAC).
     Caller is the FastAPI route handler, which itself is async — running
@@ -249,11 +250,16 @@ def verify_webhook(payload: bytes | str, sig_header: str) -> Any:
             "FEEDBOT_STRIPE_WEBHOOK_SECRET is not set; refusing to process webhooks."
         )
     payload_str = payload.decode("utf-8") if isinstance(payload, bytes) else payload
-    return Webhook.construct_event(
+    # construct_event does the HMAC + timestamp check (and raises on failure).
+    Webhook.construct_event(
         payload_str,
         sig_header,
         secret,
     )
+    # Hand the handlers a plain dict: since stripe-python 15 a StripeObject is
+    # no longer a dict subclass, so ``obj.get(...)`` on the SDK event raises
+    # AttributeError and every webhook answered 500.
+    return json.loads(payload_str)
 
 
 # Re-export the SDK exception types so callers don't need a `stripe`
