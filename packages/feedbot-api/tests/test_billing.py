@@ -14,7 +14,7 @@ suite (see conftest.py); we mutate the env var directly because
 from __future__ import annotations
 
 import os
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 import pytest
 from feedbot_core.billing import QuotaExceeded, assert_quota

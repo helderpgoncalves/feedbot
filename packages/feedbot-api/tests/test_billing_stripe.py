@@ -22,9 +22,7 @@ from __future__ import annotations
 import json
 import os
 import time
-from datetime import UTC, datetime
-from typing import AsyncIterator
-from unittest.mock import AsyncMock, MagicMock, patch
+from collections.abc import AsyncIterator
 
 import pytest
 import pytest_asyncio
@@ -33,7 +31,6 @@ from feedbot_core.models import Subscription
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
 
 _AT = chr(0x40)
 _DOMAIN = "example.com"
