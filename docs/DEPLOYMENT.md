@@ -36,3 +36,22 @@ Services:
 ## Backups
 
 `pg_dump` on a schedule. Sessions are signed cookies; nothing else lives outside Postgres.
+
+## Upgrading Postgres to a new major version
+
+The bundled database is pinned to `postgres:16-alpine`. Do **not** just bump the image tag to a
+new major (17, 18, …): the data directory on the `db` volume is tied to the major that created it,
+and the new server refuses to start on it. Dependabot ignores Postgres majors for this reason.
+
+A major upgrade is a planned operation:
+
+1. Take a dump with the *old* image still running:
+   `docker compose exec db pg_dump -U feedbot -Fc feedbot > feedbot-$(date +%F).dump`
+2. Stop the stack and move the old volume aside (keep it until the upgrade is verified).
+3. Bump the `db` image in `docker-compose.yml` (and `install.sh` / `docker-compose.cloud.yml`),
+   start only `db` so it initialises an empty data directory.
+4. Restore: `docker compose exec -T db pg_restore -U feedbot -d feedbot --no-owner < feedbot-<date>.dump`
+5. Start the rest of the stack (`api` runs `alembic upgrade head`) and smoke-test before dropping the old volume.
+
+`pg_upgrade` (e.g. the `tianon/postgres-upgrade` images) is faster for large databases but needs both
+binaries side by side; dump/restore is the simpler default at Feedbot's scale.
