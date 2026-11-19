@@ -129,7 +129,7 @@ jobs:
       - name: Log in to GHCR
         # Skipped on PRs from forks (no GHCR access). Build still runs.
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
