@@ -40,6 +40,11 @@ updates:
       - "dependencies"
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      # @types/node segue o Node do runtime (apps/web: node:22-alpine; CI: Node 22).
+      # Sobe a major à mão quando o runtime subir.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       minor-and-patch:
         update-types:
@@ -57,6 +62,11 @@ updates:
       - "dependencies"
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      # Uma major nova do Postgres não arranca sobre o volume de dados da anterior
+      # (exige pg_dump/restore ou pg_upgrade planeado, com backup). Nunca por PR automático.
+      - dependency-name: "postgres"
+        update-types: ["version-update:semver-major"]
     groups:
       minor-and-patch:
         patterns:

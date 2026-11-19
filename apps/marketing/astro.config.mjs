@@ -74,7 +74,7 @@ export default defineConfig({
                 },
                 {
                     label: 'Telegram bot',
-                    autogenerate: { directory: 'telegram' },
+                    items: [{ autogenerate: { directory: 'telegram' } }],
                 },
                 {
                     label: 'Legal',
