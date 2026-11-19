@@ -12,12 +12,21 @@
         "gen:og": "node scripts/generate-og.mjs"
     },
     "dependencies": {
-        "@astrojs/sitemap": "^3.7.2",
-        "@astrojs/starlight": "^0.36.0",
+        "@astrojs/sitemap": "^3.7.4",
+        "@astrojs/starlight": "^0.42.10",
         "@fontsource/geist-mono": "^5.2.7",
         "@fontsource/geist-sans": "^5.2.5",
-        "astro": "^5.16.0",
-        "sharp": "^0.34.0",
-        "starlight-theme-black": "^0.6.0"
+        "astro": "^7.4.7",
+        "sharp": "^0.35.5",
+        "starlight-theme-black": "^0.7.1"
+    },
+    "pnpm": {
+        "overrides": {
+            "nanoid@3": "^3.3.18",
+            "postcss": "^8.5.23",
+            "source-map-js": "^1.2.2",
+            "zod@4": "^4.6.7",
+            "esbuild": "^0.28.1"
+        }
     }
 }
