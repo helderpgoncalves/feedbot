@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "Shared models, repositories, and domain primitives for Feedbot."
 requires-python = ">=3.11"
 dependencies = [
-    "sqlalchemy>=2.0.30",
+    # [asyncio] pulls in greenlet: SQLAlchemy 2.1 no longer installs it implicitly and
+    # sqlalchemy.ext.asyncio refuses to import without it (runtime AND tests).
+    "sqlalchemy[asyncio]>=2.0.30",
     "asyncpg>=0.29",
     "alembic>=1.13",
     "pydantic>=2.7",

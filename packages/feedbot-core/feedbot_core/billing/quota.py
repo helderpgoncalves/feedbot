@@ -61,10 +61,8 @@ async def assert_quota(
     # (models.py imports nothing from billing/, but billing/__init__.py is
     # imported by routers that also import models).
     from feedbot_core.models import (
-        Feedback,
         Invite,
         Project,
-        ProjectMember,
         Subscription,
         User,
     )

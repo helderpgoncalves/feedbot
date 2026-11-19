@@ -166,7 +166,7 @@ async def export_tenant(
     users = [_row_to_dict(u) for u in users_rows]
     projects = [_row_to_dict(p) for p in projects_rows]
     feedback = [_row_to_dict(f) for f in feedbacks]
-    llm_calls = [_row_to_dict(l) for l in llm_rows]
+    llm_calls = [_row_to_dict(call) for call in llm_rows]
     api_keys = [
         {**_row_to_dict(k), "secret_hash": None} for k in api_keys_rows
     ]
