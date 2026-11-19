@@ -9,73 +9,43 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as authedRouteRouteImport } from './routes/(authed)/route'
-import { Route as authRouteRouteImport } from './routes/(auth)/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as authedTeamRouteImport } from './routes/(authed)/team'
-import { Route as authedSettingsRouteImport } from './routes/(authed)/settings'
-import { Route as authedSecurityRouteImport } from './routes/(authed)/security'
-import { Route as authedBillingRouteImport } from './routes/(authed)/billing'
-import { Route as authedAccountRouteImport } from './routes/(authed)/account'
-import { Route as authSignupRouteImport } from './routes/(auth)/signup'
-import { Route as authSetupRouteImport } from './routes/(auth)/setup'
-import { Route as authMagicRouteImport } from './routes/(auth)/magic'
+import { Route as authRouteRouteImport } from './routes/(auth)/route'
+import { Route as authedRouteRouteImport } from './routes/(authed)/route'
 import { Route as authLoginRouteImport } from './routes/(auth)/login'
-import { Route as authedProjectsIndexRouteImport } from './routes/(authed)/projects/index'
-import { Route as authedSettingsSystemRouteImport } from './routes/(authed)/settings.system'
-import { Route as authedSettingsProxyRouteImport } from './routes/(authed)/settings.proxy'
-import { Route as authedSettingsEmailRouteImport } from './routes/(authed)/settings.email'
-import { Route as authedSettingsBotRouteImport } from './routes/(authed)/settings.bot'
-import { Route as authedProjectsSlugRouteImport } from './routes/(authed)/projects/$slug'
+import { Route as authMagicRouteImport } from './routes/(auth)/magic'
+import { Route as authSetupRouteImport } from './routes/(auth)/setup'
+import { Route as authSignupRouteImport } from './routes/(auth)/signup'
+import { Route as authedAccountRouteImport } from './routes/(authed)/account'
+import { Route as authedBillingRouteImport } from './routes/(authed)/billing'
+import { Route as authedSecurityRouteImport } from './routes/(authed)/security'
+import { Route as authedSettingsRouteImport } from './routes/(authed)/settings'
+import { Route as authedTeamRouteImport } from './routes/(authed)/team'
 import { Route as authInvitesTokenRouteImport } from './routes/(auth)/invites.$token'
+import { Route as authedProjectsIndexRouteImport } from './routes/(authed)/projects/index'
+import { Route as authedProjectsSlugRouteImport } from './routes/(authed)/projects/$slug'
+import { Route as authedSettingsBotRouteImport } from './routes/(authed)/settings.bot'
+import { Route as authedSettingsEmailRouteImport } from './routes/(authed)/settings.email'
+import { Route as authedSettingsProxyRouteImport } from './routes/(authed)/settings.proxy'
+import { Route as authedSettingsSystemRouteImport } from './routes/(authed)/settings.system'
 import { Route as authedProjectsSlugLlmRouteImport } from './routes/(authed)/projects/$slug.llm'
 
-const authedRouteRoute = authedRouteRouteImport.update({
-  id: '/(authed)',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const authRouteRoute = authRouteRouteImport.update({
   id: '/(auth)',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const authedRouteRoute = authedRouteRouteImport.update({
+  id: '/(authed)',
   getParentRoute: () => rootRouteImport,
 } as any)
-const authedTeamRoute = authedTeamRouteImport.update({
-  id: '/team',
-  path: '/team',
-  getParentRoute: () => authedRouteRoute,
-} as any)
-const authedSettingsRoute = authedSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => authedRouteRoute,
-} as any)
-const authedSecurityRoute = authedSecurityRouteImport.update({
-  id: '/security',
-  path: '/security',
-  getParentRoute: () => authedRouteRoute,
-} as any)
-const authedBillingRoute = authedBillingRouteImport.update({
-  id: '/billing',
-  path: '/billing',
-  getParentRoute: () => authedRouteRoute,
-} as any)
-const authedAccountRoute = authedAccountRouteImport.update({
-  id: '/account',
-  path: '/account',
-  getParentRoute: () => authedRouteRoute,
-} as any)
-const authSignupRoute = authSignupRouteImport.update({
-  id: '/signup',
-  path: '/signup',
-  getParentRoute: () => authRouteRoute,
-} as any)
-const authSetupRoute = authSetupRouteImport.update({
-  id: '/setup',
-  path: '/setup',
+const authLoginRoute = authLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => authRouteRoute,
 } as any)
 const authMagicRoute = authMagicRouteImport.update({
@@ -83,9 +53,44 @@ const authMagicRoute = authMagicRouteImport.update({
   path: '/magic',
   getParentRoute: () => authRouteRoute,
 } as any)
-const authLoginRoute = authLoginRouteImport.update({
-  id: '/login',
-  path: '/login',
+const authSetupRoute = authSetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
+  getParentRoute: () => authRouteRoute,
+} as any)
+const authSignupRoute = authSignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => authRouteRoute,
+} as any)
+const authedAccountRoute = authedAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => authedRouteRoute,
+} as any)
+const authedBillingRoute = authedBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => authedRouteRoute,
+} as any)
+const authedSecurityRoute = authedSecurityRouteImport.update({
+  id: '/security',
+  path: '/security',
+  getParentRoute: () => authedRouteRoute,
+} as any)
+const authedSettingsRoute = authedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => authedRouteRoute,
+} as any)
+const authedTeamRoute = authedTeamRouteImport.update({
+  id: '/team',
+  path: '/team',
+  getParentRoute: () => authedRouteRoute,
+} as any)
+const authInvitesTokenRoute = authInvitesTokenRouteImport.update({
+  id: '/invites/$token',
+  path: '/invites/$token',
   getParentRoute: () => authRouteRoute,
 } as any)
 const authedProjectsIndexRoute = authedProjectsIndexRouteImport.update({
@@ -93,14 +98,14 @@ const authedProjectsIndexRoute = authedProjectsIndexRouteImport.update({
   path: '/projects/',
   getParentRoute: () => authedRouteRoute,
 } as any)
-const authedSettingsSystemRoute = authedSettingsSystemRouteImport.update({
-  id: '/system',
-  path: '/system',
-  getParentRoute: () => authedSettingsRoute,
+const authedProjectsSlugRoute = authedProjectsSlugRouteImport.update({
+  id: '/projects/$slug',
+  path: '/projects/$slug',
+  getParentRoute: () => authedRouteRoute,
 } as any)
-const authedSettingsProxyRoute = authedSettingsProxyRouteImport.update({
-  id: '/proxy',
-  path: '/proxy',
+const authedSettingsBotRoute = authedSettingsBotRouteImport.update({
+  id: '/bot',
+  path: '/bot',
   getParentRoute: () => authedSettingsRoute,
 } as any)
 const authedSettingsEmailRoute = authedSettingsEmailRouteImport.update({
@@ -108,20 +113,15 @@ const authedSettingsEmailRoute = authedSettingsEmailRouteImport.update({
   path: '/email',
   getParentRoute: () => authedSettingsRoute,
 } as any)
-const authedSettingsBotRoute = authedSettingsBotRouteImport.update({
-  id: '/bot',
-  path: '/bot',
+const authedSettingsProxyRoute = authedSettingsProxyRouteImport.update({
+  id: '/proxy',
+  path: '/proxy',
   getParentRoute: () => authedSettingsRoute,
 } as any)
-const authedProjectsSlugRoute = authedProjectsSlugRouteImport.update({
-  id: '/projects/$slug',
-  path: '/projects/$slug',
-  getParentRoute: () => authedRouteRoute,
-} as any)
-const authInvitesTokenRoute = authInvitesTokenRouteImport.update({
-  id: '/invites/$token',
-  path: '/invites/$token',
-  getParentRoute: () => authRouteRoute,
+const authedSettingsSystemRoute = authedSettingsSystemRouteImport.update({
+  id: '/system',
+  path: '/system',
+  getParentRoute: () => authedSettingsRoute,
 } as any)
 const authedProjectsSlugLlmRoute = authedProjectsSlugLlmRouteImport.update({
   id: '/llm',
@@ -265,20 +265,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/(authed)': {
-      id: '/(authed)'
-      path: ''
-      fullPath: ''
-      preLoaderRoute: typeof authedRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/(auth)': {
-      id: '/(auth)'
-      path: ''
-      fullPath: ''
-      preLoaderRoute: typeof authRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
@@ -286,53 +272,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/(authed)/team': {
-      id: '/(authed)/team'
-      path: '/team'
-      fullPath: '/team'
-      preLoaderRoute: typeof authedTeamRouteImport
-      parentRoute: typeof authedRouteRoute
+    '/(auth)': {
+      id: '/(auth)'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof authRouteRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/(authed)/settings': {
-      id: '/(authed)/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof authedSettingsRouteImport
-      parentRoute: typeof authedRouteRoute
+    '/(authed)': {
+      id: '/(authed)'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof authedRouteRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/(authed)/security': {
-      id: '/(authed)/security'
-      path: '/security'
-      fullPath: '/security'
-      preLoaderRoute: typeof authedSecurityRouteImport
-      parentRoute: typeof authedRouteRoute
-    }
-    '/(authed)/billing': {
-      id: '/(authed)/billing'
-      path: '/billing'
-      fullPath: '/billing'
-      preLoaderRoute: typeof authedBillingRouteImport
-      parentRoute: typeof authedRouteRoute
-    }
-    '/(authed)/account': {
-      id: '/(authed)/account'
-      path: '/account'
-      fullPath: '/account'
-      preLoaderRoute: typeof authedAccountRouteImport
-      parentRoute: typeof authedRouteRoute
-    }
-    '/(auth)/signup': {
-      id: '/(auth)/signup'
-      path: '/signup'
-      fullPath: '/signup'
-      preLoaderRoute: typeof authSignupRouteImport
-      parentRoute: typeof authRouteRoute
-    }
-    '/(auth)/setup': {
-      id: '/(auth)/setup'
-      path: '/setup'
-      fullPath: '/setup'
-      preLoaderRoute: typeof authSetupRouteImport
+    '/(auth)/login': {
+      id: '/(auth)/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof authLoginRouteImport
       parentRoute: typeof authRouteRoute
     }
     '/(auth)/magic': {
@@ -342,11 +300,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof authMagicRouteImport
       parentRoute: typeof authRouteRoute
     }
-    '/(auth)/login': {
-      id: '/(auth)/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof authLoginRouteImport
+    '/(auth)/setup': {
+      id: '/(auth)/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof authSetupRouteImport
+      parentRoute: typeof authRouteRoute
+    }
+    '/(auth)/signup': {
+      id: '/(auth)/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof authSignupRouteImport
+      parentRoute: typeof authRouteRoute
+    }
+    '/(authed)/account': {
+      id: '/(authed)/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof authedAccountRouteImport
+      parentRoute: typeof authedRouteRoute
+    }
+    '/(authed)/billing': {
+      id: '/(authed)/billing'
+      path: '/billing'
+      fullPath: '/billing'
+      preLoaderRoute: typeof authedBillingRouteImport
+      parentRoute: typeof authedRouteRoute
+    }
+    '/(authed)/security': {
+      id: '/(authed)/security'
+      path: '/security'
+      fullPath: '/security'
+      preLoaderRoute: typeof authedSecurityRouteImport
+      parentRoute: typeof authedRouteRoute
+    }
+    '/(authed)/settings': {
+      id: '/(authed)/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof authedSettingsRouteImport
+      parentRoute: typeof authedRouteRoute
+    }
+    '/(authed)/team': {
+      id: '/(authed)/team'
+      path: '/team'
+      fullPath: '/team'
+      preLoaderRoute: typeof authedTeamRouteImport
+      parentRoute: typeof authedRouteRoute
+    }
+    '/(auth)/invites/$token': {
+      id: '/(auth)/invites/$token'
+      path: '/invites/$token'
+      fullPath: '/invites/$token'
+      preLoaderRoute: typeof authInvitesTokenRouteImport
       parentRoute: typeof authRouteRoute
     }
     '/(authed)/projects/': {
@@ -356,18 +363,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof authedProjectsIndexRouteImport
       parentRoute: typeof authedRouteRoute
     }
-    '/(authed)/settings/system': {
-      id: '/(authed)/settings/system'
-      path: '/system'
-      fullPath: '/settings/system'
-      preLoaderRoute: typeof authedSettingsSystemRouteImport
-      parentRoute: typeof authedSettingsRoute
+    '/(authed)/projects/$slug': {
+      id: '/(authed)/projects/$slug'
+      path: '/projects/$slug'
+      fullPath: '/projects/$slug'
+      preLoaderRoute: typeof authedProjectsSlugRouteImport
+      parentRoute: typeof authedRouteRoute
     }
-    '/(authed)/settings/proxy': {
-      id: '/(authed)/settings/proxy'
-      path: '/proxy'
-      fullPath: '/settings/proxy'
-      preLoaderRoute: typeof authedSettingsProxyRouteImport
+    '/(authed)/settings/bot': {
+      id: '/(authed)/settings/bot'
+      path: '/bot'
+      fullPath: '/settings/bot'
+      preLoaderRoute: typeof authedSettingsBotRouteImport
       parentRoute: typeof authedSettingsRoute
     }
     '/(authed)/settings/email': {
@@ -377,26 +384,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof authedSettingsEmailRouteImport
       parentRoute: typeof authedSettingsRoute
     }
-    '/(authed)/settings/bot': {
-      id: '/(authed)/settings/bot'
-      path: '/bot'
-      fullPath: '/settings/bot'
-      preLoaderRoute: typeof authedSettingsBotRouteImport
+    '/(authed)/settings/proxy': {
+      id: '/(authed)/settings/proxy'
+      path: '/proxy'
+      fullPath: '/settings/proxy'
+      preLoaderRoute: typeof authedSettingsProxyRouteImport
       parentRoute: typeof authedSettingsRoute
     }
-    '/(authed)/projects/$slug': {
-      id: '/(authed)/projects/$slug'
-      path: '/projects/$slug'
-      fullPath: '/projects/$slug'
-      preLoaderRoute: typeof authedProjectsSlugRouteImport
-      parentRoute: typeof authedRouteRoute
-    }
-    '/(auth)/invites/$token': {
-      id: '/(auth)/invites/$token'
-      path: '/invites/$token'
-      fullPath: '/invites/$token'
-      preLoaderRoute: typeof authInvitesTokenRouteImport
-      parentRoute: typeof authRouteRoute
+    '/(authed)/settings/system': {
+      id: '/(authed)/settings/system'
+      path: '/system'
+      fullPath: '/settings/system'
+      preLoaderRoute: typeof authedSettingsSystemRouteImport
+      parentRoute: typeof authedSettingsRoute
     }
     '/(authed)/projects/$slug/llm': {
       id: '/(authed)/projects/$slug/llm'
