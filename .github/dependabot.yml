@@ -4,6 +4,11 @@ updates:
     directory: "/packages/feedbot-core"
     schedule: { interval: "weekly" }
     open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
   - package-ecosystem: "pip"
     directory: "/packages/feedbot-api"
     schedule: { interval: "weekly" }
@@ -13,10 +18,20 @@ updates:
       # then lift the <2 pin by hand.
       - dependency-name: "mcp"
         update-types: ["version-update:semver-major"]
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
   - package-ecosystem: "pip"
     directory: "/packages/feedbot-bot"
     schedule: { interval: "weekly" }
     open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
   - package-ecosystem: "pip"
     directory: "/packages/feedbot-mcp"
     schedule: { interval: "weekly" }
@@ -26,15 +41,35 @@ updates:
       # then lift the <2 pin by hand.
       - dependency-name: "mcp"
         update-types: ["version-update:semver-major"]
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule: { interval: "weekly" }
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
   - package-ecosystem: "docker"
     directory: "/packages/feedbot-api"
     schedule: { interval: "weekly" }
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
   - package-ecosystem: "docker"
     directory: "/packages/feedbot-bot"
     schedule: { interval: "weekly" }
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
   - package-ecosystem: "npm"
     directories:
       - "/apps/installer-host"
