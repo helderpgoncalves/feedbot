@@ -1,6 +1,9 @@
-# Fusão automática CONSERVADORA de PRs do Dependabot. Só funde quando TODOS os workflows do commit passaram e a
-# atualização é de segurança (patch/minor) ou um simples patch; saltos major e grupos com minor nunca se fundem sozinhos.
-# Corre depois do CI (workflow_run), sem esperar nem gastar minutos: o último workflow a terminar é quem funde.
+# Fusão automática dos PRs do Dependabot — só minor/patch e só com a CI toda verde.
+#  · Corre depois da CI (workflow_run), sem runners à espera: o último workflow a terminar é quem decide.
+#  · Só PRs do Dependabot para o ramo principal. Majors (e 0.x com minor nova) nunca se fundem sozinhos.
+#  · Todos os checks do commit têm de ter terminado com sucesso; se algum ainda corre, sai sem erro.
+#  · Um merge feito com o GITHUB_TOKEN não dispara workflows de push: os workflows de deploy listados
+#    em POS_MERGE são disparados à mão (workflow_dispatch) se o push os tivesse disparado (filtro de paths).
 name: Dependabot auto-merge
 on:
   workflow_run:
@@ -9,14 +12,19 @@ on:
 permissions:
   contents: write
   pull-requests: write
-  actions: read
+  actions: write
+  checks: read
+  statuses: read
+concurrency:
+  group: dependabot-automerge-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
 jobs:
   automerge:
+    name: Fundir PR do Dependabot
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'pull_request' &&
-      github.event.workflow_run.actor.login == 'dependabot[bot]' &&
-      github.event.workflow_run.pull_requests[0].number != ''
+      github.event.workflow_run.actor.login == 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -26,46 +34,106 @@ jobs:
           REPO: ${{ github.repository }}
           PRN: ${{ github.event.workflow_run.pull_requests[0].number }}
           SHA: ${{ github.event.workflow_run.head_sha }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          SELF_CHECK: Fundir PR do Dependabot
+          POS_MERGE: '["ci.yml"]'
         run: |
           python3 - <<'PY'
           import json, os, re, subprocess, sys
-          repo, num, sha = os.environ["REPO"], os.environ["PRN"], os.environ["SHA"]
+          repo, num, sha = os.environ["REPO"], os.environ.get("PRN", ""), os.environ["SHA"]
+          def run(*a):
+              return subprocess.run(["gh", *a], capture_output=True, text=True)
           def gh(*a):
-              r = subprocess.run(["gh", *a], capture_output=True, text=True)
-              if r.returncode: print("gh falhou:", " ".join(a), r.stderr.strip()[:200]); sys.exit(0)
+              r = run(*a)
+              if r.returncode: print("gh falhou:", " ".join(a), r.stderr.strip()[:300]); sys.exit(0)
               return json.loads(r.stdout) if r.stdout.strip().startswith(("{", "[")) else r.stdout
           def stop(msg): print("SEM FUNDIR:", msg); sys.exit(0)
+          if not num:
+              found = gh("pr", "list", "--repo", repo, "--head", os.environ["HEAD_BRANCH"], "--state", "open", "--json", "number")
+              if not found: stop("PR não encontrado")
+              num = str(found[0]["number"])
           pr = gh("api", f"repos/{repo}/pulls/{num}")
           if pr["state"] != "open" or pr["draft"]: stop("PR fechado ou rascunho")
           if pr["user"]["login"] != "dependabot[bot]": stop("não é do Dependabot")
           if pr["head"]["sha"] != sha: stop("o PR mudou depois deste CI")
           default = gh("api", f"repos/{repo}")["default_branch"]
           if pr["base"]["ref"] != default: stop("não vai para o ramo principal")
-          labels = {l["name"] for l in pr["labels"]}
-          # O corpo do commit do Dependabot traz um bloco YAML com o tipo de cada atualização.
-          types = []
-          for c in gh("api", "--paginate", f"repos/{repo}/pulls/{num}/commits"):
-              types += re.findall(r"update-type:\s*(\S+)", c["commit"]["message"])
-          if not types:
-              # PRs de uma só dependência: classifica pelo título («bump X from A to B»), comparando versões.
-              m = re.search(r"bump \S+ from (\S+) to (\S+)", pr["title"])
-              if not m or "group" in pr["title"]: stop("sem metadados de atualização")
-              a, b = ([int(x) for x in re.findall(r"\d+", v)[:3]] + [0, 0, 0] for v in m.groups())
-              types = ["version-update:semver-" + ("major" if a[0] != b[0] else "minor" if a[1] != b[1] else "patch")]
-          security = "security" in labels
-          allowed = {"version-update:semver-patch"} | ({"version-update:semver-minor"} if security else set())
-          if not set(types) <= allowed: stop(f"tipos não elegíveis: {sorted(set(types) - allowed)}")
-          # Todos os workflows deste commit (menos o próprio) têm de ter terminado e passado.
-          runs = gh("api", f"repos/{repo}/actions/runs?head_sha={sha}&per_page=100")["workflow_runs"]
-          runs = [r for r in runs if r["name"] != "Dependabot auto-merge"]
-          if not runs: stop("sem execuções de CI para este commit")
-          pend = [r["name"] for r in runs if r["status"] != "completed"]
+
+          # 1) Só minor/patch. O corpo do commit do Dependabot traz o tipo de cada atualização
+          #    (update-type) e linhas «from A to B»; 0.x conta a minor como major.
+          msgs = [c["commit"]["message"] for c in gh("api", f"repos/{repo}/pulls/{num}/commits?per_page=100")]
+          text = "\n".join([pr["title"]] + msgs)
+          types = set(re.findall(r"update-type:\s*(\S+)", text))
+          def ver(v):
+              m = re.match(r"v?(\d+)(?:\.(\d+))?(?:\.(\d+))?", v.strip("`'\""))
+              return [int(x or 0) for x in m.groups()] if m else None
+          pairs = []
+          lines = [pr["title"]] + [l for m in msgs for l in m.splitlines() if re.match(r"(Bumps|Updates) ", l)]
+          for a, b in re.findall(r"from (\S+) to (\S+)", "\n".join(lines)):
+              va, vb = ver(a), ver(b)
+              if va and vb: pairs.append((a, b, va, vb))
+          if not types and not pairs: stop("sem metadados de atualização")
+          if types - {"version-update:semver-minor", "version-update:semver-patch"}:
+              stop(f"tipos não elegíveis: {sorted(types)}")
+          for a, b, va, vb in pairs:
+              if va[0] != vb[0] or (va[0] == 0 and va[1] != vb[1]):
+                  stop(f"salto major: {a} -> {b}")
+
+          # 2) Todos os checks do commit (menos este) terminados e verdes.
+          checks = gh("api", f"repos/{repo}/commits/{sha}/check-runs?filter=latest&per_page=100")
+          runs = [c for c in checks["check_runs"] if c["name"] != os.environ["SELF_CHECK"]]
+          if not runs: stop("sem checks para este commit")
+          pend = [c["name"] for c in runs if c["status"] != "completed"]
           if pend: stop(f"ainda a correr: {pend}")
-          bad = [r["name"] for r in runs if r["conclusion"] not in ("success", "skipped", "neutral")]
+          bad = [c["name"] for c in runs if c["conclusion"] not in ("success", "skipped", "neutral")]
           if bad: stop(f"CI falhou: {bad}")
-          if not any(r["conclusion"] == "success" for r in runs): stop("nenhum workflow passou")
-          print(f"FUNDIR #{num}: {sorted(set(types))} security={security} CI={[r['name'] for r in runs]}")
+          if not any(c["conclusion"] == "success" for c in runs): stop("nenhum check passou")
+          st = gh("api", f"repos/{repo}/commits/{sha}/status")
+          if st.get("total_count") and st.get("state") != "success": stop(f"estado do commit: {st.get('state')}")
+
+          print(f"FUNDIR #{num}: {sorted(types)} {[(a, b) for a, b, *_ in pairs][:10]} checks={len(runs)}")
           if os.environ.get("DRY_RUN") == "1": sys.exit(0)
-          r = subprocess.run(["gh", "pr", "merge", num, "--repo", repo, "--squash", "--delete-branch"], capture_output=True, text=True)
+          r = run("pr", "merge", num, "--repo", repo, "--squash", "--delete-branch", "--match-head-commit", sha)
           print(r.stdout.strip() or r.stderr.strip())
+          if r.returncode: sys.exit(1)
+
+          # 3) Deploy: o merge com GITHUB_TOKEN não dispara o push; disparar à mão o que o push dispararia.
+          pos = json.loads(os.environ.get("POS_MERGE") or "[]")
+          if not pos: sys.exit(0)
+          files = [f["filename"] for f in gh("api", f"repos/{repo}/pulls/{num}/files?per_page=100")]
+          def rx(p):
+              out, i = "", 0
+              while i < len(p):
+                  if p.startswith("**/", i): out += "(?:.*/)?"; i += 3
+                  elif p.startswith("**", i): out += ".*"; i += 2
+                  elif p[i] == "*": out += "[^/]*"; i += 1
+                  elif p[i] == "?": out += "[^/]"; i += 1
+                  else: out += re.escape(p[i]); i += 1
+              return re.compile(out + r"\Z")
+          def hit(patterns, f):
+              ok = False
+              for p in patterns:
+                  neg = p.startswith("!")
+                  if rx(p[1:] if neg else p).match(f): ok = not neg
+              return ok
+          try:
+              import yaml
+          except ImportError:
+              yaml = None
+          for wf in pos:
+              go = True
+              if yaml:
+                  try:
+                      src = gh("api", f"repos/{repo}/contents/.github/workflows/{wf}?ref={default}", "-H", "Accept: application/vnd.github.raw")
+                      y = yaml.safe_load(src)
+                      push = (y.get(True) or y.get("on") or {}).get("push") or {}
+                      if isinstance(push, dict) and push.get("paths"):
+                          go = any(hit(push["paths"], f) for f in files)
+                      elif isinstance(push, dict) and push.get("paths-ignore"):
+                          go = not all(hit(push["paths-ignore"], f) for f in files)
+                  except Exception as e:
+                      print(f"{wf}: não consegui ler os filtros ({e}); disparo na mesma")
+              if not go: print(f"{wf}: o push não o dispararia (paths)"); continue
+              r = run("workflow", "run", wf, "--repo", repo, "--ref", default)
+              print(f"{wf}: disparado" if not r.returncode else f"{wf}: falhou {r.stderr.strip()[:200]}")
           PY
